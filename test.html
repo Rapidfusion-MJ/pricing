@@ -1,0 +1,3596 @@
+</div>
+</div>
+</div>
+</div>
+
+<script>
+// Data structure for the application
+const appData = {
+project: {
+  clientName: '',
+  projectName: '',
+  description: '',
+  startDate: '',
+  targetEndDate: '',
+  complexity: 'medium',
+  materialType: '',
+  materialCostPerKg: 50,
+  materialEstimateKg: 1,
+  wasteFactor: 20,
+  dimensions: { x: '', y: '', z: '' },
+  rdDays: 1,
+  narrative: '',
+  printNotes: '',
+  milestones: [
+    { id: 1, name: '', date: '', paymentPercentage: 0 }
+  ],
+  sliceImages: []
+},
+risks: [
+  { id: 1, type: 'technical', description: '', level: 'medium', cost: 0, clientBearing: true }
+],
+terms: {
+  standardTerms: true,
+  complexTerms: false,
+  additionalTerms: ''
+},
+currentView: 'project'
+};
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+// Initialize the first milestone
+renderMilestones();
+
+// Initialize the first risk
+renderRisks();
+
+// Initialize the risk chart
+updateRiskChart();
+
+// Initialize input fields
+initializeInputFields();
+});
+
+// Switch between views
+function switchView(view) {
+// Hide all views
+document.getElementById('view-project').classList.add('hidden');
+document.getElementById('view-risk').classList.add('hidden');
+document.getElementById('view-terms').classList.add('hidden');
+document.getElementById('view-report').classList.add('hidden');
+
+// Reset tab styles
+document.getElementById('tab-project').classList.remove('active-tab');
+document.getElementById('tab-risk').classList.remove('active-tab');
+document.getElementById('tab-terms').classList.remove('active-tab');
+document.getElementById('tab-report').classList.remove('active-tab');
+
+// Show selected view
+document.getElementById(`view-${view}`).classList.remove('hidden');
+document.getElementById(`tab-${view}`).classList.add('active-tab');
+
+// Update current view
+appData.currentView = view;
+
+// Special actions for certain views
+if (view === 'terms') {
+  updateCostSummary();
+} else if (view === 'report') {
+  generateReport();
+}
+}
+
+// Initialize input fields
+function initializeInputFields() {
+// Project details
+document.getElementById('clientName').addEventListener('input', e => { 
+  appData.project.clientName = e.target.value;
+});
+document.getElementById('projectName').addEventListener('input', e => { 
+  appData.project.projectName = e.target.value;
+});
+document.getElementById('description').addEventListener('input', e => { 
+  appData.project.description = e.target.value;
+});
+document.getElementById('startDate').addEventListener('input', e => { 
+  appData.project.startDate = e.target.value;
+});
+document.getElementById('targetEndDate').addEventListener('input', e => { 
+  appData.project.targetEndDate = e.target.value;
+});
+document.getElementById('materialType').addEventListener('input', e => { 
+  appData.project.materialType = e.target.value;
+});
+document.getElementById('complexity').addEventListener('change', e => { 
+  appData.project.complexity = e.target.value;
+  if (appData.currentView === 'terms') updateCostSummary();
+});
+document.getElementById('dimensionX').addEventListener('input', e => { 
+  appData.project.dimensions.x = e.target.value;
+});
+document.getElementById('dimensionY').addEventListener('input', e => { 
+  appData.project.dimensions.y = e.target.value;
+});
+document.getElementById('dimensionZ').addEventListener('input', e => { 
+  appData.project.dimensions.z = e.target.value;
+});
+document.getElementById('materialEstimateKg').addEventListener('input', e => { 
+  appData.project.materialEstimateKg = e.target.value;
+  if (appData.currentView === 'terms') updateCostSummary();
+});
+document.getElementById('wasteFactor').addEventListener('input', e => { 
+  appData.project.wasteFactor = e.target.value;
+  if (appData.currentView === 'terms') updateCostSummary();
+});
+document.getElementById('materialCostPerKg').addEventListener('input', e => { 
+  appData.project.materialCostPerKg = e.target.value;
+  if (appData.currentView === 'terms') updateCostSummary();
+});
+document.getElementById('rdDays').addEventListener('input', e => { 
+  appData.project.rdDays = e.target.value;
+  if (appData.currentView === 'terms') updateCostSummary();
+});
+document.getElementById('narrative').addEventListener('input', e => { 
+  appData.project.narrative = e.target.value;
+});
+document.getElementById('printNotes').addEventListener('input', e => { 
+  appData.project.printNotes = e.target.value;
+});
+
+// Terms
+document.getElementById('standardTerms').addEventListener('change', e => { 
+  appData.terms.standardTerms = e.target.checked;
+});
+document.getElementById('complexTerms').addEventListener('change', e => { 
+  appData.terms.complexTerms = e.target.checked;
+});
+document.getElementById('additionalTerms').addEventListener('input', e => { 
+  appData.terms.additionalTerms = e.target.value;
+});
+}
+
+
+
+// Remove milestone
+function removeMilestone(id) {
+if (appData.project.milestones.length > 1) {
+  appData.project.milestones = appData.project.milestones.filter(m => m.id !== id);
+  renderMilestones();
+}
+}
+
+
+
+// Render milestones
+// Update the milestone rendering function to include better placeholders
+function renderMilestones() {
+  const container = document.getElementById('milestonesContainer');
+  container.innerHTML = '';
+
+  appData.project.milestones.forEach((milestone, index) => {
+    const milestoneElement = document.createElement('div');
+    milestoneElement.className = 'grid grid-cols-4 gap-2 mb-2';
+    milestoneElement.innerHTML = `
+      <input
+        placeholder="Milestone name"
+        class="input-field"
+        value="${milestone.name}"
+        onInput="updateMilestone(${milestone.id}, 'name', this.value)"
+      />
+      <input
+        type="date"
+        class="input-field"
+        value="${milestone.date}"
+        onChange="updateMilestone(${milestone.id}, 'date', this.value)"
+      />
+      <input
+        type="number"
+        placeholder="Payment %"
+        min="0"
+        max="100"
+        class="input-field"
+        value="${milestone.paymentPercentage > 0 ? milestone.paymentPercentage : ''}"
+        onInput="updateMilestone(${milestone.id}, 'paymentPercentage', this.value)"
+      />
+      <button 
+        class="text-primary-color hover:text-secondary-color flex items-center justify-center"
+        onClick="removeMilestone(${milestone.id})"
+        style="${appData.project.milestones.length > 1 ? '' : 'visibility: hidden;'}"
+      >
+        <svg viewBox="0 0 24 24" class="btn-icon" style="width: 16px; height: 16px;">
+          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>
+        Remove
+      </button>
+    `;
+    
+    container.appendChild(milestoneElement);
+  });
+}
+
+// Also update the addMilestone function to set an empty initial payment percentage
+function addMilestone() {
+  const newId = appData.project.milestones.length > 0 
+    ? Math.max(...appData.project.milestones.map(m => m.id)) + 1 
+    : 1;
+
+  appData.project.milestones.push({
+    id: newId,
+    name: '',
+    date: '',
+    paymentPercentage: '' // Start with empty string instead of 0
+  });
+
+  renderMilestones();
+}
+
+// Update milestone
+function updateMilestone(id, field, value) {
+const index = appData.project.milestones.findIndex(m => m.id === id);
+if (index !== -1) {
+  appData.project.milestones[index][field] = value;
+}
+}
+
+// Add slice image
+function addPlaceholderImage() {
+const newId = appData.project.sliceImages.length > 0 
+  ? Math.max(...appData.project.sliceImages.map(i => i.id)) + 1 
+  : 1;
+
+appData.project.sliceImages.push({
+  id: newId,
+  name: `Slice_view_${newId}.png`,
+  description: ''
+});
+
+renderSliceImages();
+}
+
+// Remove slice image
+function removeSliceImage(id) {
+appData.project.sliceImages = appData.project.sliceImages.filter(i => i.id !== id);
+renderSliceImages();
+}
+
+// Render slice images
+function renderSliceImages() {
+const container = document.getElementById('sliceImagesContainer');
+container.innerHTML = '';
+
+appData.project.sliceImages.forEach((image, index) => {
+  const imageElement = document.createElement('div');
+  imageElement.className = 'border border-gray-700 rounded-md p-2 flex flex-col';
+  imageElement.style.background = 'rgba(167, 78, 158, 0.1)';
+  imageElement.innerHTML = `
+    <div class="flex justify-between items-center mb-2">
+      <p class="text-sm truncate">${image.name}</p>
+      <button 
+        class="text-primary-color hover:text-secondary-color"
+        onClick="removeSliceImage(${image.id})"
+      >
+        <svg viewBox="0 0 24 24" class="btn-icon" style="width: 16px; height: 16px;">
+          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+        </svg>
+      </button>
+    </div>
+    <div style="background: rgba(26, 26, 26, 0.6); height: 120px; display: flex; align-items: center; justify-content: center; border-radius: var(--border-radius);">
+      <svg viewBox="0 0 24 24" style="width: 36px; height: 36px; stroke: var(--text-dim); fill: none; stroke-width: 1.5;">
+        <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+      </svg>
+    </div>
+    <input
+      class="mt-2 input-field"
+      placeholder="Caption/description"
+      value="${image.description}"
+      onInput="updateSliceImage(${image.id}, 'description', this.value)"
+    />
+  `;
+  
+  container.appendChild(imageElement);
+});
+}
+
+// Update slice image
+function updateSliceImage(id, field, value) {
+const index = appData.project.sliceImages.findIndex(i => i.id === id);
+if (index !== -1) {
+  appData.project.sliceImages[index][field] = value;
+}
+}
+
+// Add risk
+function addRisk() {
+const newId = appData.risks.length > 0 
+  ? Math.max(...appData.risks.map(r => r.id)) + 1 
+  : 1;
+
+appData.risks.push({
+  id: newId,
+  type: 'technical',
+  description: '',
+  level: 'medium',
+  cost: 0,
+  clientBearing: true
+});
+
+renderRisks();
+updateRiskChart();
+}
+
+// Remove risk
+function removeRisk(id) {
+if (appData.risks.length > 1) {
+  appData.risks = appData.risks.filter(r => r.id !== id);
+  renderRisks();
+  updateRiskChart();
+  if (appData.currentView === 'terms') updateCostSummary();
+}
+}
+
+// Render risks
+function renderRisks() {
+const container = document.getElementById('risksContainer');
+container.innerHTML = '';
+
+appData.risks.forEach((risk, index) => {
+  const riskElement = document.createElement('div');
+  riskElement.className = 'p-4 border border-gray-700 rounded-md mb-4';
+  riskElement.style.background = 'rgba(167, 78, 158, 0.1)';
+  riskElement.innerHTML = `
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-medium text-primary-color">Risk #${index + 1}</h3>
+      ${appData.risks.length > 1 ? `
+        <button 
+          class="text-primary-color hover:text-secondary-color"
+          onClick="removeRisk(${risk.id})"
+        >
+          <svg viewBox="0 0 24 24" class="btn-icon" style="width: 16px; height: 16px;">
+            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+          Remove
+        </button>
+      ` : ''}
+    </div>
+    
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div>
+        <label class="label">Risk Type</label>
+        <select
+          class="input-field"
+          onChange="updateRisk(${risk.id}, 'type', this.value)"
+        >
+          <option value="technical" ${risk.type === 'technical' ? 'selected' : ''}>Technical Challenge</option>
+          <option value="timeline" ${risk.type === 'timeline' ? 'selected' : ''}>Delay Risk</option>
+          <option value="resource" ${risk.type === 'resource' ? 'selected' : ''}>Resource Shortage</option>
+          <option value="material" ${risk.type === 'material' ? 'selected' : ''}>Material Issue</option>
+          <option value="quality" ${risk.type === 'quality' ? 'selected' : ''}>Quality Problem</option>
+          <option value="client" ${risk.type === 'client' ? 'selected' : ''}>Client Requirement Change</option>
+        </select>
+      </div>
+      
+      <div>
+        <label class="label">Who Bears the Cost?</label>
+        <select
+          class="input-field"
+          onChange="updateRisk(${risk.id}, 'clientBearing', this.value === 'client')"
+        >
+          <option value="client" ${risk.clientBearing ? 'selected' : ''}>Client</option>
+          <option value="us" ${!risk.clientBearing ? 'selected' : ''}>Our Company</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="mb-4">
+      <label class="label">Risk Description</label>
+      <textarea
+        class="input-field"
+        rows="2"
+        placeholder="Describe the risk in simple terms..."
+        onInput="updateRisk(${risk.id}, 'description', this.value)"
+      >${risk.description}</textarea>
+    </div>
+    
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div>
+        <label class="label">Risk Level</label>
+        <select
+          class="input-field"
+          onChange="updateRisk(${risk.id}, 'level', this.value)"
+        >
+          <option value="low" ${risk.level === 'low' ? 'selected' : ''}>Low</option>
+          <option value="medium" ${risk.level === 'medium' ? 'selected' : ''}>Medium</option>
+          <option value="high" ${risk.level === 'high' ? 'selected' : ''}>High</option>
+          <option value="very high" ${risk.level === 'very high' ? 'selected' : ''}>Very High</option>
+        </select>
+      </div>
+      
+      <div>
+        <label class="label">Additional Cost (£)</label>
+        <input
+          type="number"
+          placeholder="Enter amount..."
+          class="input-field"
+          value="${risk.cost}"
+          onInput="updateRisk(${risk.id}, 'cost', this.value)"
+        />
+      </div>
+    </div>
+    
+    <div class="p-2 bg-card" style="background: rgba(26, 26, 26, 0.4); border-radius: var(--border-radius);">
+      <p class="text-dim">
+        Risk Impact: <span class="font-bold capitalize text-light">${risk.level}</span> 
+        <span class="text-xs ml-2">
+          (${risk.clientBearing ? 'Client bears cost' : 'Our company bears cost'})
+        </span>
+      </p>
+    </div>
+  `;
+  
+  container.appendChild(riskElement);
+});
+}
+
+// Initialize the file upload functionality
+function initializeFileUpload() {
+  const dropArea = document.querySelector('.image-container');
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.multiple = true;
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  fileInput.id = 'fileInput';
+  dropArea.appendChild(fileInput);
+
+  // Click on container to trigger file input
+  dropArea.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  // Handle file selection
+  fileInput.addEventListener('change', handleFiles);
+
+  // Drag and drop events
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  // Highlight drop area when dragging over it
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, highlight, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, unhighlight, false);
+  });
+
+  function highlight() {
+    dropArea.classList.add('border-primary-color');
+    dropArea.style.borderWidth = '2px';
+    dropArea.style.background = 'rgba(167, 78, 158, 0.2)';
+  }
+
+  function unhighlight() {
+    dropArea.classList.remove('border-primary-color');
+    dropArea.style.borderWidth = '2px';
+    dropArea.style.background = 'rgba(167, 78, 158, 0.1)';
+  }
+
+  // Handle dropped files
+  dropArea.addEventListener('drop', handleDrop, false);
+
+  function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles({ target: { files } });
+  }
+}
+
+// Handle the selected files
+function handleFiles(e) {
+  const files = Array.from(e.target.files);
+  
+  files.forEach(file => {
+    if (file.type.startsWith('image/')) {
+      addImageToProject(file);
+    } else {
+      alert('Please upload only image files.');
+    }
+  });
+}
+
+// Add the image to the project
+function addImageToProject(file) {
+  const reader = new FileReader();
+  
+  reader.onload = function(e) {
+    const newId = appData.project.sliceImages.length > 0 
+      ? Math.max(...appData.project.sliceImages.map(i => i.id)) + 1 
+      : 1;
+    
+    appData.project.sliceImages.push({
+      id: newId,
+      name: file.name,
+      description: '',
+      dataUrl: e.target.result
+    });
+    
+    renderSliceImages();
+  };
+  
+  reader.readAsDataURL(file);
+}
+
+// Update the renderSliceImages function to display actual images
+function renderSliceImages() {
+  const container = document.getElementById('sliceImagesContainer');
+  container.innerHTML = '';
+
+  appData.project.sliceImages.forEach((image) => {
+    const imageElement = document.createElement('div');
+    imageElement.className = 'border border-gray-700 rounded-md p-2 flex flex-col';
+    imageElement.style.background = 'rgba(167, 78, 158, 0.1)';
+    
+    let imageContent;
+    if (image.dataUrl) {
+      // Real image from file upload
+      imageContent = `
+        <div style="height: 120px; display: flex; align-items: center; justify-content: center; border-radius: var(--border-radius); overflow: hidden;">
+          <img src="${image.dataUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="${image.name}">
+        </div>
+      `;
+    } else {
+      // Placeholder image
+      imageContent = `
+        <div style="background: rgba(26, 26, 26, 0.6); height: 120px; display: flex; align-items: center; justify-content: center; border-radius: var(--border-radius);">
+          <svg viewBox="0 0 24 24" style="width: 36px; height: 36px; stroke: var(--text-dim); fill: none; stroke-width: 1.5;">
+            <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+      `;
+    }
+    
+    imageElement.innerHTML = `
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-sm truncate">${image.name}</p>
+        <button 
+          class="text-primary-color hover:text-secondary-color"
+          onClick="removeSliceImage(${image.id})"
+        >
+          <svg viewBox="0 0 24 24" class="btn-icon" style="width: 16px; height: 16px;">
+            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+        </button>
+      </div>
+      ${imageContent}
+      <input
+        class="mt-2 input-field"
+        placeholder="Caption/description"
+        value="${image.description}"
+        onInput="updateSliceImage(${image.id}, 'description', this.value)"
+      />
+    `;
+    
+    container.appendChild(imageElement);
+  });
+}
+
+// Initialize the file upload functionality
+function initializeFileUpload() {
+  const dropArea = document.querySelector('.image-container');
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.multiple = true;
+  fileInput.accept = 'image/*';
+  fileInput.style.display = 'none';
+  fileInput.id = 'fileInput';
+  dropArea.appendChild(fileInput);
+
+  // Click on container to trigger file input
+  dropArea.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  // Handle file selection
+  fileInput.addEventListener('change', handleFiles);
+
+  // Drag and drop events
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, preventDefaults, false);
+  });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  // Highlight drop area when dragging over it
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropArea.addEventListener(eventName, highlight, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropArea.addEventListener(eventName, unhighlight, false);
+  });
+
+  function highlight() {
+    dropArea.classList.add('border-primary-color');
+    dropArea.style.borderWidth = '2px';
+    dropArea.style.background = 'rgba(167, 78, 158, 0.2)';
+  }
+
+  function unhighlight() {
+    dropArea.classList.remove('border-primary-color');
+    dropArea.style.borderWidth = '2px';
+    dropArea.style.background = 'rgba(167, 78, 158, 0.1)';
+  }
+
+  // Handle dropped files
+  dropArea.addEventListener('drop', handleDrop, false);
+
+  function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles({ target: { files } });
+  }
+}
+
+// Handle the selected files
+function handleFiles(e) {
+  const files = Array.from(e.target.files);
+  
+  files.forEach(file => {
+    if (file.type.startsWith('image/')) {
+      addImageToProject(file);
+    } else {
+      alert('Please upload only image files.');
+    }
+  });
+}
+
+// Add the image to the project
+function addImageToProject(file) {
+  const reader = new FileReader();
+  
+  reader.onload = function(e) {
+    const newId = appData.project.sliceImages.length > 0 
+      ? Math.max(...appData.project.sliceImages.map(i => i.id)) + 1 
+      : 1;
+    
+    appData.project.sliceImages.push({
+      id: newId,
+      name: file.name,
+      description: '',
+      dataUrl: e.target.result
+    });
+    
+    renderSliceImages();
+  };
+  
+  reader.readAsDataURL(file);
+}
+
+// Update the image content with compression if needed
+function compressImage(file, callback, maxWidth = 1200, maxHeight = 1200, quality = 0.7) {
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+  
+  reader.onload = function(e) {
+    const img = new Image();
+    img.src = e.target.result;
+    
+    img.onload = function() {
+      // Calculate new dimensions while maintaining aspect ratio
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > maxWidth) {
+        height = Math.round(height * (maxWidth / width));
+        width = maxWidth;
+      }
+      
+      if (height > maxHeight) {
+        width = Math.round(width * (maxHeight / height));
+        height = maxHeight;
+      }
+      
+      // Create canvas for resizing
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Draw resized image on canvas
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Get compressed data URL
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      
+      callback(dataUrl);
+    };
+  };
+}
+
+// Function to add a direct image from camera (for mobile devices)
+function addImageFromCamera() {
+  // Check if device supports camera
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('Your device does not support camera access or it is not allowed in this browser.');
+    return;
+  }
+  
+  // Create camera UI elements
+  const cameraModal = document.createElement('div');
+  cameraModal.className = 'camera-modal';
+  cameraModal.innerHTML = `
+    <div class="camera-container">
+      <video id="cameraPreview" autoplay playsinline></video>
+      <div class="camera-controls">
+        <button id="captureBtn" class="button">Capture</button>
+        <button id="cancelCameraBtn" class="button" style="background: rgba(167, 78, 158, 0.2);">Cancel</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(cameraModal);
+  
+  // Get video element
+  const video = document.getElementById('cameraPreview');
+  
+  // Start camera
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      video.srcObject = stream;
+      
+      // Capture button event
+      document.getElementById('captureBtn').addEventListener('click', () => {
+        // Create canvas to capture frame
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Draw video frame to canvas
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Add to project
+        const newId = appData.project.sliceImages.length > 0 
+          ? Math.max(...appData.project.sliceImages.map(i => i.id)) + 1 
+          : 1;
+        
+        appData.project.sliceImages.push({
+          id: newId,
+          name: `Camera_capture_${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`,
+          description: '',
+          dataUrl: dataUrl
+        });
+        
+        // Close camera
+        closeCamera(stream);
+        
+        // Render images
+        renderSliceImages();
+      });
+      
+      // Cancel button event
+      document.getElementById('cancelCameraBtn').addEventListener('click', () => {
+        closeCamera(stream);
+      });
+    })
+    .catch(err => {
+      alert('Error accessing camera: ' + err.message);
+      document.body.removeChild(cameraModal);
+    });
+}
+
+// Function to close camera
+function closeCamera(stream) {
+  // Stop all tracks
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
+  
+  // Remove modal
+  const modal = document.querySelector('.camera-modal');
+  if (modal) {
+    document.body.removeChild(modal);
+  }
+}
+
+// Function to handle image rotation
+function rotateImage(imageId) {
+  const index = appData.project.sliceImages.findIndex(img => img.id === imageId);
+  if (index === -1 || !appData.project.sliceImages[index].dataUrl) return;
+  
+  const img = new Image();
+  img.src = appData.project.sliceImages[index].dataUrl;
+  
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.height;
+    canvas.height = img.width;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Translate and rotate
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+    
+    // Update dataUrl
+    appData.project.sliceImages[index].dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    
+    // Re-render
+    renderSliceImages();
+  };
+}
+
+// Enhance renderSliceImages to include rotation button for real images
+function renderSliceImages() {
+  const container = document.getElementById('sliceImagesContainer');
+  container.innerHTML = '';
+
+  appData.project.sliceImages.forEach((image) => {
+    const imageElement = document.createElement('div');
+    imageElement.className = 'border border-gray-700 rounded-md p-2 flex flex-col';
+    imageElement.style.background = 'rgba(167, 78, 158, 0.1)';
+    
+    let imageContent;
+    let imageControls = '';
+    
+    if (image.dataUrl) {
+      // Real image from file upload
+      imageContent = `
+        <div style="height: 120px; display: flex; align-items: center; justify-content: center; border-radius: var(--border-radius); overflow: hidden;">
+          <img src="${image.dataUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="${image.name}">
+        </div>
+      `;
+      
+      // Add rotation control for real images
+      imageControls = `
+        <button 
+          class="text-primary-color hover:text-secondary-color ml-2"
+          onClick="rotateImage(${image.id})"
+          title="Rotate image"
+        >
+          <svg viewBox="0 0 24 24" class="btn-icon" style="width: 16px; height: 16px;">
+            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+        </button>
+      `;
+    } else {
+      // Placeholder image
+      imageContent = `
+        <div style="background: rgba(26, 26, 26, 0.6); height: 120px; display: flex; align-items: center; justify-content: center; border-radius: var(--border-radius);">
+          <svg viewBox="0 0 24 24" style="width: 36px; height: 36px; stroke: var(--text-dim); fill: none; stroke-width: 1.5;">
+            <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+      `;
+    }
+    
+    imageElement.innerHTML = `
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-sm truncate">${image.name}</p>
+        <div class="flex">
+          ${imageControls}
+          <button 
+            class="text-primary-color hover:text-secondary-color"
+            onClick="removeSliceImage(${image.id})"
+            title="Remove image"
+          >
+            <svg viewBox="0 0 24 24" class="btn-icon" style="width: 16px; height: 16px;">
+              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      ${imageContent}
+      <input
+        class="mt-2 input-field"
+        placeholder="Caption/description"
+        value="${image.description}"
+        onInput="updateSliceImage(${image.id}, 'description', this.value)"
+      />
+    `;
+    
+    container.appendChild(imageElement);
+  });
+}
+
+// Update the image container to include camera option for mobile devices
+
+// Fix the enhanceImageUploadContainer function to remove the duplicate Take Photo button
+function enhanceImageUploadContainer() {
+  const container = document.querySelector('.image-container');
+  const hasCameraSupport = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  
+  // First, remove any existing camera buttons to prevent duplicates
+  const existingCameraButtons = container.querySelectorAll('.camera-button');
+  existingCameraButtons.forEach(button => button.remove());
+  
+  if (hasCameraSupport) {
+    // Add single camera button for mobile
+    const cameraButton = document.createElement('button');
+    cameraButton.className = 'mt-2 px-4 py-2 button camera-button';
+    cameraButton.style.maxWidth = '200px';
+    cameraButton.style.margin = '10px auto';
+    cameraButton.onclick = addImageFromCamera;
+    cameraButton.innerHTML = `
+      <svg class="btn-icon" viewBox="0 0 24 24">
+        <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+        <path d="M12 13a2 2 0 100-4 2 2 0 000 4z"></path>
+      </svg>
+      Take Photo
+    `;
+    
+    // Add after the existing button
+    const existingButton = container.querySelector('button:not(.camera-button)');
+    if (existingButton) {
+      existingButton.insertAdjacentElement('afterend', cameraButton);
+    } else {
+      container.appendChild(cameraButton);
+    }
+  }
+}
+// Add CSS for camera modal
+
+// Updated calendar button styles to hide the native icon and only use our custom one
+function addCalendarButtonStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Hide native calendar picker icon */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      opacity: 0;
+      width: 0;
+      padding: 0;
+      margin: 0;
+      display: none;
+    }
+    
+    /* Add an explicit calendar button for better cross-browser support */
+    .date-field-container {
+      position: relative;
+      width: 100%;
+    }
+    
+    .date-field-container .input-field {
+      width: 100%;
+    }
+    
+    .calendar-button {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: white;
+      border-radius: 4px;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0.8;
+      transition: all 0.2s;
+    }
+    
+    .calendar-button:hover {
+      opacity: 1;
+      background-color: rgba(167, 78, 158, 0.3);
+    }
+    
+    .calendar-button svg {
+      width: 16px;
+      height: 16px;
+    }
+  `;
+  
+  document.head.appendChild(style);
+}
+
+// Function to enhance date inputs with custom calendar buttons
+function enhanceDateInputs() {
+  // First, remove any previously added custom buttons
+  const existingButtons = document.querySelectorAll('.calendar-button');
+  existingButtons.forEach(button => button.remove());
+  
+  // Find all date inputs
+  const dateInputs = document.querySelectorAll('input[type="date"]');
+  
+  dateInputs.forEach(input => {
+    // Skip if already inside a date-field-container
+    if (input.parentElement.classList.contains('date-field-container')) return;
+    
+    // Get the parent element 
+    const parent = input.parentElement;
+    
+    // Create a container for the date field
+    const container = document.createElement('div');
+    container.className = 'date-field-container';
+    
+    // Move the input inside this container
+    parent.insertBefore(container, input);
+    container.appendChild(input);
+    
+    // Create an explicit calendar button
+    const calendarButton = document.createElement('button');
+    calendarButton.type = 'button';
+    calendarButton.className = 'calendar-button';
+    calendarButton.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(167, 78, 158, 1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+      </svg>
+    `;
+    
+    // Add click handler
+    calendarButton.addEventListener('click', () => {
+      // Trigger the native date picker
+      input.showPicker();
+    });
+    
+    // Add the button to the container
+    container.appendChild(calendarButton);
+  });
+}
+
+// Remove previous enhancements if any
+function cleanupPreviousEnhancements() {
+  // Remove old styles
+  const oldStyles = document.head.querySelectorAll('style');
+  oldStyles.forEach(style => {
+    if (style.textContent.includes('calendar-button') || 
+        style.textContent.includes('date-field-container')) {
+      style.remove();
+    }
+  });
+  
+  // Unwrap any date inputs that are already in containers
+  const containers = document.querySelectorAll('.date-field-container');
+  containers.forEach(container => {
+    const input = container.querySelector('input[type="date"]');
+    if (input) {
+      container.parentNode.insertBefore(input, container);
+      container.remove();
+    }
+  });
+}
+
+// Call this function when the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  // First cleanup any previous enhancements
+  cleanupPreviousEnhancements();
+  
+  // Then add the new styles and enhance
+  addCalendarButtonStyles();
+  enhanceDateInputs();
+  
+  // Also call when switching views to ensure new elements are enhanced
+  const tabButtons = document.querySelectorAll('.tab-button');
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      // Allow time for the DOM to update
+      setTimeout(enhanceDateInputs, 100);
+    });
+  });
+});
+
+
+function addCameraStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .camera-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .camera-container {
+      width: 90%;
+      max-width: 600px;
+      background: var(--bg-card);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+    }
+    
+    #cameraPreview {
+      width: 100%;
+      height: auto;
+      background: #000;
+    }
+    
+    .camera-controls {
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .camera-controls .button {
+      margin: 0;
+      width: 48%;
+    }
+  `;
+  
+  document.head.appendChild(style);
+}
+
+// Enhanced initialization to include camera support
+document.addEventListener('DOMContentLoaded', function() {
+  // ... (existing initialization)
+  initializeFileUpload();
+  enhanceImageUploadContainer();
+  addCameraStyles();
+});
+
+// Update risk
+function updateRisk(id, field, value) {
+const index = appData.risks.findIndex(r => r.id === id);
+if (index !== -1) {
+  if (field === 'cost') {
+    value = parseFloat(value) || 0;
+  }
+  appData.risks[index][field] = value;
+  updateRiskChart();
+  if (appData.currentView === 'terms') updateCostSummary();
+}
+}
+
+
+
+// Calculate risk score
+function calculateRiskScore(level) {
+const riskScores = { 
+  low: 1, 
+  medium: 2, 
+  high: 3, 
+  'very high': 4 
+};
+
+return riskScores[level] || 2;
+}
+
+// First, add the necessary libraries in the head section of the HTML
+function addJsPDFLibrary() {
+  // Add jsPDF library if not already present
+  if (!document.querySelector('script[src*="jspdf.umd.min.js"]')) {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    document.head.appendChild(script);
+  }
+  
+  // Add html2canvas if not already present
+  if (!document.querySelector('script[src*="html2canvas.min.js"]')) {
+    const html2canvas = document.createElement('script');
+    html2canvas.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    document.head.appendChild(html2canvas);
+  }
+}
+
+// Improved PDF export function that preserves the styling
+function implementStyledPDFExport() {
+  document.getElementById('exportPDF').addEventListener('click', function() {
+    // Show a loading overlay
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      color: white;
+      font-family: 'Roboto', sans-serif;
+    `;
+    loadingOverlay.innerHTML = `
+      <div class="spinner" style="margin-bottom: 20px;"></div>
+      <p style="font-size: 18px;">Generating PDF, please wait...</p>
+    `;
+    document.body.appendChild(loadingOverlay);
+    
+    setTimeout(() => {
+      try {
+        // Get report content
+        const reportContent = document.getElementById('reportContent');
+        const projectName = appData.project.projectName || "3D_Print_Project";
+        const safeProjectName = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        
+        // Create a styled clone of the report with custom background and colors
+        const reportClone = reportContent.cloneNode(true);
+        
+        // Apply your custom styling to the clone
+        reportClone.style.cssText = `
+          background-color: var(--bg-dark);
+          color: var(--text-light);
+          padding: 20px;
+          font-family: 'Roboto', sans-serif;
+          position: absolute;
+          left: -9999px;
+          width: 210mm; /* A4 width */
+          border-radius: var(--border-radius);
+        `;
+        
+        // Add style for heading elements in the report
+        const headings = reportClone.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        headings.forEach(heading => {
+          heading.style.color = '#a74e9e'; // Primary color
+          heading.style.fontWeight = 'bold';
+        });
+        
+        // Style table elements
+        const tables = reportClone.querySelectorAll('table');
+        tables.forEach(table => {
+          table.style.borderCollapse = 'collapse';
+          table.style.width = '100%';
+          
+          // Style table headers
+          const headers = table.querySelectorAll('th');
+          headers.forEach(header => {
+            header.style.backgroundColor = 'rgba(167, 78, 158, 0.2)';
+            header.style.color = '#a74e9e';
+            header.style.padding = '8px';
+            header.style.border = '1px solid #555';
+            header.style.textAlign = 'left';
+          });
+          
+          // Style table cells
+          const cells = table.querySelectorAll('td');
+          cells.forEach(cell => {
+            cell.style.border = '1px solid #555';
+            cell.style.padding = '8px';
+          });
+        });
+        
+        // Style divs with card-like appearance
+        const cardDivs = reportClone.querySelectorAll('div[class*="border"]');
+        cardDivs.forEach(div => {
+          div.style.backgroundColor = 'rgba(167, 78, 158, 0.1)';
+          div.style.border = '1px solid rgba(167, 78, 158, 0.3)';
+          div.style.borderRadius = '8px';
+          div.style.padding = '12px';
+          div.style.marginBottom = '16px';
+        });
+        
+        // Style images for better print quality
+        const images = reportClone.querySelectorAll('img');
+        images.forEach(img => {
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          img.style.objectFit = 'contain';
+        });
+        
+        // Append to body temporarily to render it
+        document.body.appendChild(reportClone);
+        
+        // Use html2canvas with appropriate settings for your dark theme
+        html2canvas(reportClone, {
+          scale: 2, // Higher quality
+          backgroundColor: '#1a1a1a', // Match your dark background
+          logging: false,
+          useCORS: true,
+          allowTaint: true
+        }).then(canvas => {
+          // Clean up the temporary clone
+          document.body.removeChild(reportClone);
+          
+          // Create PDF with jsPDF
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF('p', 'mm', 'a4');
+          
+          // Calculate dimensions
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          const imgWidth = 210; // A4 width in mm
+          const pageHeight = 297; // A4 height in mm
+          const imgHeight = canvas.height * imgWidth / canvas.width;
+          let heightLeft = imgHeight;
+          let position = 0;
+          
+          // Add first page
+          doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+          
+          // Add subsequent pages if needed
+          while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            doc.addPage();
+            doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+          }
+          
+          // Save the PDF
+          doc.save(`${safeProjectName}_report.pdf`);
+          
+          // Remove loading overlay
+          document.body.removeChild(loadingOverlay);
+        }).catch(error => {
+          console.error("Canvas error:", error);
+          document.body.removeChild(loadingOverlay);
+          alert('Error generating PDF. Please try again or use the Print function instead.');
+        });
+      } catch (error) {
+        console.error("PDF generation error:", error);
+        document.body.removeChild(loadingOverlay);
+        
+        // Show error message
+        alert('Error generating PDF. Please try again or use the Print function instead.');
+      }
+    }, 300); // Short delay to allow overlay to render
+  });
+}
+
+// Add custom styles specific to PDF export
+function addPDFExportStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    @media print {
+      body {
+        background: white !important;
+        color: black !important;
+      }
+      
+      #reportContent {
+        background: white !important;
+        color: black !important;
+        padding: 20mm !important;
+      }
+      
+      #reportContent h1, #reportContent h2, #reportContent h3 {
+        color: #a74e9e !important;
+      }
+      
+      #reportContent table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+      }
+      
+      #reportContent th {
+        background-color: rgba(167, 78, 158, 0.2) !important;
+        color: #a74e9e !important;
+        padding: 8px !important;
+        border: 1px solid #555 !important;
+      }
+      
+      #reportContent td {
+        border: 1px solid #555 !important;
+        padding: 8px !important;
+      }
+      
+      #reportContent .border {
+        border: 1px solid rgba(167, 78, 158, 0.3) !important;
+      }
+      
+      /* Hide UI elements during print */
+      .button, button, .tab-button, nav {
+        display: none !important;
+      }
+    }
+    
+    /* Custom spinner for the loading overlay */
+    .pdf-loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .pdf-spinner {
+      width: 50px;
+      height: 50px;
+      margin-bottom: 20px;
+      border: 4px solid rgba(167, 78, 158, 0.3);
+      border-radius: 50%;
+      border-top-color: #a74e9e;
+      animation: pdf-spin 1s linear infinite;
+    }
+    
+    @keyframes pdf-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `;
+  
+  document.head.appendChild(style);
+}
+
+// Initialize the PDF export functionality
+function initializePDFExport() {
+  // Add the necessary libraries
+  addJsPDFLibrary();
+  
+  // Add special styles for PDF export
+  addPDFExportStyles();
+  
+  // Wait a moment for libraries to load before implementing
+  setTimeout(() => {
+    implementStyledPDFExport();
+  }, 1000);
+}
+
+// Call this function when the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initializePDFExport();
+});
+
+// Alternative export implementation that handles multi-page reports better
+function implementImprovedPDFExport() {
+  document.getElementById('exportPDF').addEventListener('click', function() {
+    // Show a loading overlay on the entire report view
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    `;
+    loadingOverlay.innerHTML = `
+      <div class="spinner" style="margin-bottom: 20px;"></div>
+      <p style="color: white; font-size: 18px;">Generating PDF, please wait...</p>
+    `;
+    document.body.appendChild(loadingOverlay);
+    
+    setTimeout(() => {
+      try {
+        // Get report content
+        const reportContent = document.getElementById('reportContent');
+        const projectName = appData.project.projectName || "3D_Print_Project";
+        const safeProjectName = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        
+        // Create a temporary clone of the report with white background for better PDF
+        const reportClone = reportContent.cloneNode(true);
+        reportClone.style.backgroundColor = 'white';
+        reportClone.style.color = 'black';
+        reportClone.style.padding = '20px';
+        reportClone.style.position = 'absolute';
+        reportClone.style.left = '-9999px';
+        document.body.appendChild(reportClone);
+        
+        // Fix styling for better PDF output
+        const allTexts = reportClone.querySelectorAll('p, h1, h2, h3, span, td, th, div');
+        allTexts.forEach(el => {
+          if (el.className !== 'spinner' && !el.className.includes('btn-icon')) {
+            el.style.color = 'black';
+          }
+        });
+        
+        // Make sure borders are visible
+        const borders = reportClone.querySelectorAll('table, td, th, .border');
+        borders.forEach(el => {
+          el.style.borderColor = '#ccc';
+        });
+        
+        // Use html2canvas to convert to image
+        html2canvas(reportClone, {
+          scale: 2,
+          backgroundColor: 'white',
+          logging: false,
+          useCORS: true
+        }).then(canvas => {
+          // Clean up the temporary clone
+          document.body.removeChild(reportClone);
+          
+          // Create PDF with jsPDF
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF('p', 'mm', 'a4');
+          
+          // Calculate dimensions
+          const imgData = canvas.toDataURL('image/jpeg', 0.92);
+          const imgWidth = 210; // A4 width in mm
+          const pageHeight = 297; // A4 height in mm
+          const imgHeight = canvas.height * imgWidth / canvas.width;
+          let heightLeft = imgHeight;
+          let position = 0;
+          
+          // Add first page
+          doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+          
+          // Add subsequent pages if needed
+          while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            doc.addPage();
+            doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+          }
+          
+          // Save the PDF
+          doc.save(`${safeProjectName}_report.pdf`);
+          
+          // Remove loading overlay
+          document.body.removeChild(loadingOverlay);
+        });
+      } catch (error) {
+        console.error("PDF generation error:", error);
+        document.body.removeChild(loadingOverlay);
+        
+        // Show error message
+        alert('Error generating PDF. Please try again or use the Print function instead.');
+      }
+    }, 100);
+  });
+}
+
+// Call these functions after the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  // Add the necessary libraries
+  addJsPDFLibrary();
+  
+  // Wait a moment for libraries to load before implementing
+  setTimeout(() => {
+    // Choose one implementation based on your preference
+    // implementPDFExport();
+    implementImprovedPDFExport();
+  }, 1000);
+});
+
+// Update risk chart
+// Update risk chart with improved styling
+// Update risk chart to a more useful risk matrix
+function updateRiskChart() {
+  // Prepare data for chart
+  const riskData = appData.risks.map(risk => ({
+    id: risk.id,
+    description: risk.description.length > 25 
+      ? risk.description.substring(0, 25) + '...' 
+      : risk.description || `Risk ${risk.id}`,
+    score: calculateRiskScore(risk.level),
+    cost: parseFloat(risk.cost) || 0,
+    type: risk.type,
+    level: risk.level,
+    clientBearing: risk.clientBearing
+  }));
+
+  // Get existing chart if it exists
+  const ctx = document.getElementById('riskChart').getContext('2d');
+  if (window.riskChartInstance) {
+    window.riskChartInstance.destroy();
+  }
+  
+  // Define the matrix size and labels
+  const severityLabels = ['Low', 'Medium', 'High', 'Very High'];
+  const impactLabels = ['< £500', '£500-£2000', '£2000-£5000', '> £5000'];
+  
+  // Map risk costs to impact levels (0-3)
+  const getImpactLevel = (cost) => {
+    if (cost < 500) return 0;
+    if (cost < 2000) return 1;
+    if (cost < 5000) return 2;
+    return 3;
+  };
+  
+  // Map risk levels to severity levels (0-3)
+  const getSeverityLevel = (level) => {
+    const levels = { 'low': 0, 'medium': 1, 'high': 2, 'very high': 3 };
+    return levels[level] || 0;
+  };
+  
+  // Prepare scatter plot data
+  const scatterData = riskData.map(risk => ({
+    x: getImpactLevel(risk.cost),
+    y: getSeverityLevel(risk.level),
+    cost: risk.cost,
+    description: risk.description,
+    clientBearing: risk.clientBearing,
+    type: risk.type,
+    id: risk.id
+  }));
+  
+  // Background colors for the matrix zones
+  const createGradient = (color, opacity) => {
+    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, `rgba(${color}, ${opacity})`);
+    gradient.addColorStop(1, `rgba(${color}, ${opacity * 0.7})`);
+    return gradient;
+  };
+  
+  // Custom plugin to draw the risk matrix background
+  const matrixBackgroundPlugin = {
+    id: 'matrixBackground',
+    beforeDraw: (chart) => {
+      const { ctx, chartArea, scales } = chart;
+      const { top, bottom, left, right, width, height } = chartArea;
+      
+      // Draw the matrix background with color zones
+      for (let y = 0; y < 4; y++) {
+        for (let x = 0; x < 4; x++) {
+          const xPos = scales.x.getPixelForValue(x - 0.5);
+          const yPos = scales.y.getPixelForValue(y - 0.5);
+          const cellWidth = scales.x.getPixelForValue(x + 0.5) - xPos;
+          const cellHeight = scales.y.getPixelForValue(y + 0.5) - yPos;
+          
+          // Determine risk level (red for high, yellow for medium, green for low)
+          let color;
+          const riskLevel = x + y; // Combined risk level
+          
+          if (riskLevel >= 5) {
+            // High risk (red zone)
+            color = createGradient('167, 37, 48', 0.3);
+          } else if (riskLevel >= 2) {
+            // Medium risk (yellow/orange zone)
+            color = createGradient('230, 162, 60', 0.3);
+          } else {
+            // Low risk (green zone)
+            color = createGradient('46, 125, 50', 0.3);
+          }
+          
+          ctx.fillStyle = color;
+          ctx.fillRect(xPos, yPos, cellWidth, cellHeight);
+          
+          // Add subtle grid lines
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+          ctx.strokeRect(xPos, yPos, cellWidth, cellHeight);
+        }
+      }
+    }
+  };
+
+  // Create the risk matrix chart
+  window.riskChartInstance = new Chart(ctx, {
+    type: 'scatter',
+    plugins: [matrixBackgroundPlugin],
+    data: {
+      datasets: [{
+        label: 'Client Risk',
+        data: scatterData.filter(d => d.clientBearing),
+        backgroundColor: 'rgba(167, 78, 158, 0.9)',
+        borderColor: 'rgba(167, 78, 158, 1)',
+        borderWidth: 2,
+        pointRadius: 10,
+        pointHoverRadius: 12,
+        pointStyle: 'circle'
+      }, {
+        label: 'Company Risk',
+        data: scatterData.filter(d => !d.clientBearing),
+        backgroundColor: 'rgba(58, 134, 255, 0.9)',
+        borderColor: 'rgba(58, 134, 255, 1)',
+        borderWidth: 2,
+        pointRadius: 10,
+        pointHoverRadius: 12,
+        pointStyle: 'triangle'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          min: -0.5,
+          max: 3.5,
+          ticks: {
+            callback: function(value) {
+              return impactLabels[value] || '';
+            },
+            stepSize: 1,
+            color: 'rgba(230, 230, 230, 0.9)',
+            font: {
+              size: 11
+            }
+          },
+          grid: {
+            display: false
+          },
+          title: {
+            display: true,
+            text: 'Cost Impact',
+            color: 'rgba(230, 230, 230, 0.9)',
+            font: {
+              size: 14,
+              weight: 'bold'
+            },
+            padding: { top: 10, bottom: 10 }
+          }
+        },
+        y: {
+          min: -0.5,
+          max: 3.5,
+          ticks: {
+            reverse: true, // This makes low risks at the bottom, high at the top
+            callback: function(value) {
+              return severityLabels[value] || '';
+            },
+            stepSize: 1,
+            color: 'rgba(230, 230, 230, 0.9)',
+            font: {
+              size: 11
+            }
+          },
+          grid: {
+            display: false
+          },
+          title: {
+            display: true,
+            text: 'Risk Severity',
+            color: 'rgba(230, 230, 230, 0.9)',
+            font: {
+              size: 14,
+              weight: 'bold'
+            },
+            padding: { top: 10, bottom: 10 }
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            color: 'rgba(230, 230, 230, 0.9)',
+            usePointStyle: true
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(26, 26, 26, 0.95)',
+          titleColor: 'rgba(167, 78, 158, 1)',
+          bodyColor: 'rgba(230, 230, 230, 0.9)',
+          borderColor: 'rgba(167, 78, 158, 0.5)',
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 8,
+          callbacks: {
+            title: function(tooltipItems) {
+              const datapoint = tooltipItems[0].raw;
+              return datapoint.description || 'Risk';
+            },
+            label: function(context) {
+              const datapoint = context.raw;
+              const labels = [];
+              
+              labels.push(`Severity: ${severityLabels[datapoint.y]}`);
+              labels.push(`Cost Impact: £${datapoint.cost.toLocaleString()}`);
+              labels.push(`Type: ${datapoint.type.charAt(0).toUpperCase() + datapoint.type.slice(1)}`);
+              labels.push(`Borne by: ${datapoint.clientBearing ? 'Client' : 'Company'}`);
+              
+              return labels;
+            }
+          }
+        }
+      },
+      layout: {
+        padding: {
+          top: 20,
+          right: 20,
+          bottom: 20,
+          left: 20
+        }
+      }
+    }
+  });
+  
+  // Add a nice empty state message if there's no data
+  if (riskData.length === 0) {
+    const centerX = ctx.canvas.width / 2;
+    const centerY = ctx.canvas.height / 2;
+    
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '16px Roboto, sans-serif';
+    ctx.fillStyle = 'rgba(230, 230, 230, 0.5)';
+    ctx.fillText('No risks added yet. Click "Add Another Risk" to begin.', centerX, centerY);
+  }
+}
+
+// Update the riskChartContainer to make it taller for better visualization
+document.addEventListener('DOMContentLoaded', function() {
+  const chartContainer = document.getElementById('riskChartContainer');
+  if (chartContainer) {
+    // Make the chart taller
+    const chartDiv = chartContainer.querySelector('.h-64');
+    if (chartDiv) {
+      chartDiv.classList.remove('h-64');
+      chartDiv.classList.add('h-96');
+    }
+    
+    // Add a legend below the chart to explain the matrix
+    const legend = document.createElement('div');
+    legend.className = 'mt-4 p-4 text-sm text-dim border border-gray-700 rounded-md';
+    legend.style.background = 'rgba(26, 26, 26, 0.4)';
+    legend.innerHTML = `
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-medium text-primary-color">Risk Matrix Zones:</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <div class="flex items-center">
+          <span class="inline-block w-4 h-4 mr-2 rounded-sm" style="background: rgba(46, 125, 50, 0.3)"></span>
+          <span>Low Risk (Green)</span>
+        </div>
+        <div class="flex items-center">
+          <span class="inline-block w-4 h-4 mr-2 rounded-sm" style="background: rgba(230, 162, 60, 0.3)"></span>
+          <span>Medium Risk (Yellow)</span>
+        </div>
+        <div class="flex items-center">
+          <span class="inline-block w-4 h-4 mr-2 rounded-sm" style="background: rgba(167, 37, 48, 0.3)"></span>
+          <span>High Risk (Red)</span>
+        </div>
+      </div>
+      <p class="mt-2">Position in the matrix indicates both severity and impact. Risks in the top-right (red zone) require immediate attention.</p>
+    `;
+    
+    chartContainer.appendChild(legend);
+  }
+});
+
+// Calculate costs
+// Calculate costs with company risk distributed across day rate
+function calculateCosts() {
+  // Base R&D days
+  const rdDays = parseFloat(appData.project.rdDays) || 1;
+  
+  // Standard day rate
+  const standardDayRate = 1000;
+  
+  // Calculate risk costs - separate client and company risks
+  let clientRiskCost = 0;
+  let companyRiskCost = 0;
+  
+  appData.risks.forEach(risk => {
+    const riskCost = parseFloat(risk.cost) || 0;
+    if (risk.clientBearing) {
+      clientRiskCost += riskCost;
+    } else {
+      companyRiskCost += riskCost;
+    }
+  });
+  
+  // Calculate adjusted day rate that includes company risk
+  const adjustedDayRate = standardDayRate + (companyRiskCost / rdDays);
+  
+  // Total R&D cost with company risk built in
+  const rdCost = rdDays * adjustedDayRate;
+  
+  // Complexity multiplier
+  let complexityMultiplier = 1;
+  switch(appData.project.complexity) {
+    case 'low': complexityMultiplier = 0.8; break;
+    case 'medium': complexityMultiplier = 1; break;
+    case 'high': complexityMultiplier = 1.3; break;
+    case 'very high': complexityMultiplier = 1.6; break;
+    default: complexityMultiplier = 1;
+  }
+
+  // Material costs
+  const materialEstimateKg = parseFloat(appData.project.materialEstimateKg) || 1;
+  const wasteFactor = (parseFloat(appData.project.wasteFactor) || 20) / 100 + 1;
+  const totalWeightKg = materialEstimateKg * wasteFactor;
+  const materialCostPerKg = parseFloat(appData.project.materialCostPerKg) || 50;
+  const materialCost = totalWeightKg * materialCostPerKg;
+
+  return {
+    rdDays,
+    standardDayRate,
+    adjustedDayRate,
+    rdCost,
+    clientRiskCost,
+    companyRiskCost,
+    materialCost,
+    weightKg: materialEstimateKg,
+    totalWeightKg,
+    subtotal: rdCost + materialCost,
+    riskAdjusted: (rdCost + materialCost) * complexityMultiplier + clientRiskCost,
+    complexityMultiplier
+  };
+}
+
+// Update cost summary to show company risk distributed into day rate
+function updateCostSummary() {
+  const costs = calculateCosts();
+  const container = document.getElementById('costSummary');
+
+  container.innerHTML = `
+    <h3 class="text-lg font-medium mb-4 text-primary-color">Cost Summary</h3>
+    
+    <div class="space-y-4">
+      <div class="metric-item">
+        <label>R&D Cost</label>
+        <div class="analysis-values">
+          ${costs.companyRiskCost > 0 ? `
+            <div class="analysis-row text-dim">
+              <div class="sublabel">Standard Rate:</div>
+              <span>${costs.rdDays} days @ £${costs.standardDayRate.toLocaleString()}/day = £${(costs.rdDays * costs.standardDayRate).toLocaleString()}</span>
+            </div>
+            <div class="analysis-row text-dim">
+              <div class="sublabel">Company Risk Costs:</div>
+              <span>£${costs.companyRiskCost.toLocaleString()} (spread across ${costs.rdDays} days)</span>
+            </div>
+            <div class="analysis-row font-medium">
+              <div class="sublabel">Adjusted Rate:</div>
+              <span>${costs.rdDays} days @ £${costs.adjustedDayRate.toLocaleString()}/day = £${costs.rdCost.toLocaleString()}</span>
+            </div>
+          ` : `
+            <span>${costs.rdDays} days @ £${costs.standardDayRate.toLocaleString()}/day = £${costs.rdCost.toLocaleString()}</span>
+          `}
+        </div>
+      </div>
+      
+      <div class="metric-item">
+        <label>Material Estimate</label>
+        <div class="analysis-values">
+          <div class="analysis-row">
+            <div class="sublabel">Base Material:</div>
+            <span>${costs.weightKg.toFixed(2)} kg @ £${appData.project.materialCostPerKg}/kg = £${(costs.weightKg * appData.project.materialCostPerKg).toLocaleString()}</span>
+          </div>
+          <div class="analysis-row">
+            <div class="sublabel">With Waste (${appData.project.wasteFactor}%):</div>
+            <span>${costs.totalWeightKg.toFixed(2)} kg total = £${costs.materialCost.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="metric-item">
+        <label>Complexity Factor</label>
+        <span>${costs.complexityMultiplier.toFixed(2)}x (${appData.project.complexity})</span>
+      </div>
+      
+      ${costs.clientRiskCost > 0 ? `
+        <div class="metric-item">
+          <label>Client-Borne Risk Costs</label>
+          <span>£${costs.clientRiskCost.toLocaleString()}</span>
+        </div>
+      ` : ''}
+      
+      <div class="metric-item" style="background: rgba(167, 78, 158, 0.2); border-color: rgba(167, 78, 158, 0.4);">
+        <label>Total Project Cost</label>
+        <span style="font-size: 1.25rem; font-weight: 600; color: var(--primary-color);">£${costs.riskAdjusted.toLocaleString()}</span>
+      </div>
+    </div>
+  `;
+}
+
+// Add fullscreen view functionality for images in the report
+function addFullscreenImageViewing() {
+  // Create fullscreen view container
+  const fullscreenView = document.createElement('div');
+  fullscreenView.className = 'fullscreen-view hidden';
+  fullscreenView.innerHTML = `
+    <button class="close-fullscreen">×</button>
+    <img class="fullscreen-image" src="" alt="Fullscreen view">
+    <div class="fullscreen-controls">
+      <button class="button download-image" style="max-width: 180px;">
+        <svg class="btn-icon" viewBox="0 0 24 24">
+          <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        </svg>
+        Download Image
+      </button>
+    </div>
+  `;
+  document.body.appendChild(fullscreenView);
+  
+  // Close button event
+  fullscreenView.querySelector('.close-fullscreen').addEventListener('click', () => {
+    fullscreenView.classList.add('hidden');
+  });
+  
+  // ESC key to close
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !fullscreenView.classList.contains('hidden')) {
+      fullscreenView.classList.add('hidden');
+    }
+  });
+  
+  // Download button event
+  fullscreenView.querySelector('.download-image').addEventListener('click', () => {
+    const img = fullscreenView.querySelector('.fullscreen-image');
+    const link = document.createElement('a');
+    link.href = img.src;
+    link.download = 'slice-image-' + new Date().getTime() + '.jpg';
+    link.click();
+  });
+  
+  // Add click event listeners to all report images
+  function addImageClickEvents() {
+    const reportContent = document.getElementById('reportContent');
+    if (reportContent) {
+      const images = reportContent.querySelectorAll('img');
+      images.forEach(img => {
+        if (!img.dataset.hasClickEvent) {
+          img.style.cursor = 'pointer';
+          img.title = 'Click to view fullscreen';
+          img.addEventListener('click', () => {
+            const fullImg = fullscreenView.querySelector('.fullscreen-image');
+            fullImg.src = img.src;
+            fullImg.alt = img.alt;
+            fullscreenView.classList.remove('hidden');
+          });
+          img.dataset.hasClickEvent = 'true';
+        }
+      });
+    }
+  }
+  
+  // Add observer for report content changes
+  const observer = new MutationObserver(() => {
+    addImageClickEvents();
+  });
+  
+  const reportContent = document.getElementById('reportContent');
+  if (reportContent) {
+    observer.observe(reportContent, { childList: true, subtree: true });
+  }
+  
+  // Add click event to view tab button to ensure events are added after report generation
+  document.getElementById('tab-report').addEventListener('click', () => {
+    setTimeout(addImageClickEvents, 500);
+  });
+}
+
+// Call this function after the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  // ... (existing initialization)
+  initializeFileUpload();
+  enhanceImageUploadContainer();
+  addCameraStyles();
+  addFullscreenImageViewing();
+});
+
+// Add CSS for fullscreen view
+function addFullscreenStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .fullscreen-view {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .fullscreen-view.hidden {
+      display: none;
+    }
+    
+    .fullscreen-image {
+      max-width: 90%;
+      max-height: 80%;
+      object-fit: contain;
+    }
+    
+    .close-fullscreen {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 32px;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    
+    .close-fullscreen:hover {
+      color: var(--primary-color);
+      transform: scale(1.1);
+    }
+    
+    .fullscreen-controls {
+      margin-top: 16px;
+      display: flex;
+      gap: 16px;
+    }
+    
+    /* Ensure all images in the report are clickable */
+    #reportContent img {
+      transition: all 0.2s;
+    }
+    
+    #reportContent img:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 8px rgba(167, 78, 158, 0.5);
+    }
+  `;
+  
+  document.head.appendChild(style);
+}
+
+// Call this function after the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  // ... (existing initialization)
+  addFullscreenStyles();
+});
+
+// Generate report
+// Update the generateReport function to display actual images
+function generateReport() {
+  const costs = calculateCosts();
+  const container = document.getElementById('reportContent');
+
+  // First part of the report - header and company info
+  container.innerHTML = `
+    <div class="flex justify-between items-start">
+      <div>
+        <h1 class="text-2xl font-bold text-primary-color">${appData.project.projectName || "3D Print Project"}</h1>
+        <p class="text-dim">Prepared for: ${appData.project.clientName || "Client"}</p>
+        <p class="text-dim">Date: ${new Date().toLocaleDateString()}</p>
+      </div>
+      <div class="text-right">
+        <p class="font-bold text-primary-color">Rapid Fusion Ltd</p>
+      </div>
+    </div>
+    
+    <!-- Project Narrative -->
+    <div class="mt-8">
+      <h2 class="text-xl font-bold border-b border-gray-700 pb-2 text-primary-color">Project Narrative</h2>
+      <div class="mt-4 space-y-4">
+        <div>
+          ${appData.project.narrative ? `<p>${appData.project.narrative}</p>` : 
+            `<p class="text-dim italic">No detailed narrative provided.</p>`}
+        </div>
+        
+        ${appData.project.printNotes ? `
+          <div>
+            <h3 class="text-lg font-medium mt-4 text-primary-color">Technical Print Notes</h3>
+            <p class="mt-2">${appData.project.printNotes}</p>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  // Add slice visualizations if any
+  if (appData.project.sliceImages.length > 0) {
+    container.innerHTML += `
+      <div class="mt-8">
+        <h2 class="text-xl font-bold border-b border-gray-700 pb-2 text-primary-color">Slice Visualizations</h2>
+        <div class="mt-4 grid grid-cols-2 gap-6">
+          ${appData.project.sliceImages.map(img => {
+            let imageContent;
+            if (img.dataUrl) {
+              // Display the actual uploaded image
+              imageContent = `
+                <div style="height: 160px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: var(--border-radius);">
+                  <img src="${img.dataUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="${img.name}">
+                </div>
+              `;
+            } else {
+              // Display placeholder for non-uploaded images
+              imageContent = `
+                <div style="background: rgba(26, 26, 26, 0.6); height: 160px; display: flex; align-items: center; justify-content: center; border-radius: var(--border-radius);">
+                  <svg viewBox="0 0 24 24" style="width: 48px; height: 48px; stroke: var(--text-dim); fill: none; stroke-width: 1.5;">
+                    <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+              `;
+            }
+            
+            return `
+              <div class="border border-gray-700 rounded-md overflow-hidden" style="background: rgba(167, 78, 158, 0.1);">
+                ${imageContent}
+                <div class="p-3">
+                  <p class="font-medium text-primary-color">${img.name}</p>
+                  ${img.description ? `<p class="text-sm text-dim mt-1">${img.description}</p>` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // Project specifications
+  container.innerHTML += `
+    <div class="mt-8">
+      <h2 class="text-xl font-bold border-b border-gray-700 pb-2 text-primary-color">Project Specifications</h2>
+      <div class="mt-4 grid grid-cols-2 gap-y-4">
+        <div>
+          <p class="text-sm text-dim">Start Date</p>
+          <p>${appData.project.startDate || "TBD"}</p>
+        </div>
+        <div>
+          <p class="text-sm text-dim">Target Completion</p>
+          <p>${appData.project.targetEndDate || "TBD"}</p>
+        </div>
+        <div>
+          <p class="text-sm text-dim">Material</p>
+          <p>${appData.project.materialType || "Standard"}</p>
+        </div>
+        <div>
+          <p class="text-sm text-dim">Dimensions</p>
+          <p>${appData.project.dimensions.x || 0} × ${appData.project.dimensions.y || 0} × ${appData.project.dimensions.z || 0} mm</p>
+        </div>
+        <div>
+          <p class="text-sm text-dim">Complexity</p>
+          <p class="capitalize">${appData.project.complexity}</p>
+        </div>
+        <div>
+          <p class="text-sm text-dim">R&D Days</p>
+          <p>${appData.project.rdDays}</p>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Project pricing section updated to show company risk in day rate
+  let rdCostDisplay = '';
+  if (costs.companyRiskCost > 0) {
+    // When there are company-borne risks, show the calculation
+    rdCostDisplay = `
+      <div class="flex justify-between text-sm text-dim">
+        <span>Base R&D Rate: ${costs.rdDays} days @ £${costs.standardDayRate.toLocaleString()}/day</span>
+        <span>£${(costs.rdDays * costs.standardDayRate).toLocaleString()}</span>
+      </div>
+      <div class="flex justify-between text-sm text-dim">
+        <span>Company Risk Adjustment: £${costs.companyRiskCost.toLocaleString()} spread over ${costs.rdDays} days</span>
+        <span>+£${costs.companyRiskCost.toLocaleString()}</span>
+      </div>
+      <div class="flex justify-between">
+        <span>Adjusted R&D Cost: ${costs.rdDays} days @ £${Math.round(costs.adjustedDayRate).toLocaleString()}/day</span>
+        <span>£${costs.rdCost.toLocaleString()}</span>
+      </div>
+    `;
+  } else {
+    // Simple display when no company risks
+    rdCostDisplay = `
+      <div class="flex justify-between">
+        <span>R&D Cost (${costs.rdDays} days @ £${costs.standardDayRate.toLocaleString()}/day):</span>
+        <span>£${costs.rdCost.toLocaleString()}</span>
+      </div>
+    `;
+  }
+
+  // Insert into the Project Pricing section
+  container.innerHTML += `
+    <!-- Project Pricing -->
+    <div class="mt-8">
+      <h2 class="text-xl font-bold border-b border-gray-700 pb-2 text-primary-color">Project Pricing</h2>
+      <div class="mt-4 space-y-2">
+        ${rdCostDisplay}
+        
+        <div class="flex justify-between">
+          <span>Base Material Estimate: ${costs.weightKg.toFixed(2)} kg @ £${appData.project.materialCostPerKg}/kg</span>
+          <span>£${(costs.weightKg * appData.project.materialCostPerKg).toLocaleString()}</span>
+        </div>
+        
+        <div class="flex justify-between text-sm text-dim">
+          <span>With ${appData.project.wasteFactor}% waste factor: ${costs.totalWeightKg.toFixed(2)} kg total</span>
+          <span>£${costs.materialCost.toLocaleString()}</span>
+        </div>
+        
+        <div class="flex justify-between">
+          <span>Complexity Factor:</span>
+          <span>${costs.complexityMultiplier.toFixed(2)}x</span>
+        </div>
+        
+        ${costs.clientRiskCost > 0 ? `
+          <div class="flex justify-between">
+            <span>Client-Borne Risk Costs:</span>
+            <span>£${costs.clientRiskCost.toLocaleString()}</span>
+          </div>
+        ` : ''}
+        
+        <div class="h-px bg-gray-700 my-2"></div>
+        
+        <div class="flex justify-between font-bold">
+          <span>Total Project Cost:</span>
+          <span class="text-primary-color">£${costs.riskAdjusted.toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Risk assessment
+  const clientRisks = appData.risks.filter(r => r.clientBearing);
+  const companyRisks = appData.risks.filter(r => !r.clientBearing);
+  
+  container.innerHTML += `
+    <div class="mt-8">
+      <h2 class="text-xl font-bold border-b border-gray-700 pb-2 text-primary-color">Risk Assessment</h2>
+      <div class="mt-4">
+        ${clientRisks.length > 0 ? `
+          <div>
+            <h3 class="text-lg font-medium mb-2 text-primary-color">Client-Borne Risks</h3>
+            <table class="min-w-full border-collapse">
+              <thead>
+                <tr class="bg-card" style="background: rgba(167, 78, 158, 0.2);">
+                  <th class="px-3 py-2 text-left text-sm font-medium text-primary-color border border-gray-700">Risk</th>
+                  <th class="px-3 py-2 text-left text-sm font-medium text-primary-color border border-gray-700">Type</th>
+                  <th class="px-3 py-2 text-left text-sm font-medium text-primary-color border border-gray-700">Level</th>
+                  <th class="px-3 py-2 text-left text-sm font-medium text-primary-color border border-gray-700">Potential Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${clientRisks.map(risk => `
+                  <tr>
+                    <td class="px-3 py-2 text-sm border border-gray-700">${risk.description}</td>
+                    <td class="px-3 py-2 text-sm capitalize border border-gray-700">${risk.type}</td>
+                    <td class="px-3 py-2 text-sm capitalize border border-gray-700">${risk.level}</td>
+                    <td class="px-3 py-2 text-sm border border-gray-700">£${parseFloat(risk.cost).toLocaleString() || 0}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            
+            <p class="mt-4 text-sm text-dim">
+              The above risks have been identified as potential challenges for this project. 
+              Additional costs associated with these risks will be passed to the client in the event they materialize.
+            </p>
+          </div>
+        ` : `
+          <p>No client-borne risks identified for this project.</p>
+        `}
+        
+        ${companyRisks.length > 0 ? `
+          <div class="mt-4">
+            <h3 class="text-lg font-medium mb-2 text-primary-color">Company-Borne Risks</h3>
+            <table class="min-w-full border-collapse">
+              <thead>
+                <tr class="bg-card" style="background: rgba(58, 134, 255, 0.2);">
+                  <th class="px-3 py-2 text-left text-sm font-medium text-primary-color border border-gray-700">Risk</th>
+                  <th class="px-3 py-2 text-left text-sm font-medium text-primary-color border border-gray-700">Type</th>
+                  <th class="px-3 py-2 text-left text-sm font-medium text-primary-color border border-gray-700">Level</th>
+                  <th class="px-3 py-2 text-left text-sm font-medium text-primary-color border border-gray-700">Potential Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${companyRisks.map(risk => `
+                  <tr>
+                    <td class="px-3 py-2 text-sm border border-gray-700">${risk.description}</td>
+                    <td class="px-3 py-2 text-sm capitalize border border-gray-700">${risk.type}</td>
+                    <td class="px-3 py-2 text-sm capitalize border border-gray-700">${risk.level}</td>
+                    <td class="px-3 py-2 text-sm border border-gray-700">£${parseFloat(risk.cost).toLocaleString() || 0}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            
+            <p class="mt-4 text-sm text-dim">
+              These risks have been identified and their costs (£${costs.companyRiskCost.toLocaleString()} total) 
+              have been incorporated into the R&D day rate, increasing it from £${costs.standardDayRate.toLocaleString()}/day 
+              to £${Math.round(costs.adjustedDayRate).toLocaleString()}/day.
+            </p>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  // Payment schedule
+  if (appData.project.milestones.length > 0) {
+    container.innerHTML += `
+      <div class="mt-8">
+        <h2 class="text-xl font-bold border-b border-gray-700 pb-2 text-primary-color">Payment Schedule</h2>
+        <div class="mt-4">
+          <table class="min-w-full border-collapse">
+            <thead>
+              <tr class="bg-card" style="background: rgba(167, 78, 158, 0.2);">
+                <th class="px-3 py-2 text-left text-sm font-medium text-primary-color border border-gray-700">Milestone</th>
+                <th class="px-3 py-2 text-left text-sm font-medium text-primary-color border border-gray-700">Due Date</th>
+                <th class="px-3 py-2 text-right text-sm font-medium text-primary-color border border-gray-700">Payment %</th>
+                <th class="px-3 py-2 text-right text-sm font-medium text-primary-color border border-gray-700">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${appData.project.milestones.map(milestone => `
+                <tr>
+                  <td class="px-3 py-2 text-sm border border-gray-700">${milestone.name || 'Unnamed milestone'}</td>
+                  <td class="px-3 py-2 text-sm border border-gray-700">${milestone.date || 'TBD'}</td>
+                  <td class="px-3 py-2 text-sm text-right border border-gray-700">${milestone.paymentPercentage}%</td>
+                  <td class="px-3 py-2 text-sm text-right border border-gray-700">
+                    £${((costs.riskAdjusted * milestone.paymentPercentage) / 100).toLocaleString()}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  // Terms and conditions
+  container.innerHTML += `
+    <div class="mt-8">
+      <h2 class="text-xl font-bold border-b border-gray-700 pb-2 text-primary-color">Terms & Conditions</h2>
+      <div class="mt-4 space-y-4">
+        ${appData.terms.standardTerms ? `
+          <div class="flex items-start space-x-2">
+            <svg viewBox="0 0 24 24" class="btn-icon text-primary-color" style="min-width: 20px; margin-top: 3px;">
+              <path d="M5 13l4 4L19 7"></path>
+            </svg>
+            <p>Our company will take on delivery risk for the defined scope. Any additional time required to meet the scope will not be charged to the client.</p>
+          </div>
+        ` : ''}
+        
+        ${appData.terms.complexTerms ? `
+          <div class="flex items-start space-x-2">
+            <svg viewBox="0 0 24 24" class="btn-icon text-secondary-color" style="min-width: 20px; margin-top: 3px;">
+              <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <p>Due to the complex nature of this project, additional time and costs associated with identified risks will be passed to the client. There may be aspects of the scope that cannot be achieved within the estimated timeframe.</p>
+          </div>
+        ` : ''}
+        
+        ${appData.terms.additionalTerms ? `
+          <div class="mt-2">
+            <p class="font-medium text-primary-color mb-1">Additional Terms:</p>
+            <p>${appData.terms.additionalTerms}</p>
+          </div>
+        ` : ''}
+        
+        <div class="p-4 border border-gray-700 rounded-md mt-4" style="background: rgba(167, 78, 158, 0.1);">
+          <div class="flex items-start space-x-2">
+            <svg viewBox="0 0 24 24" class="btn-icon text-secondary-color" style="min-width: 20px; margin-top: 3px;">
+              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <p class="text-sm text-dim">All estimates are based on current understanding of requirements. Project timeline and costs may be subject to change based on discoveries during the R&D process. Any significant changes will be communicated and agreed upon before proceeding.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Approval -->
+    <div class="mt-8">
+      <h2 class="text-xl font-bold border-b border-gray-700 pb-2 text-primary-color">Approval</h2>
+      <div class="mt-4 grid grid-cols-2 gap-8">
+        <div>
+          <p class="font-medium text-primary-color">Client Approval:</p>
+          <div class="h-20 border border-gray-700 mt-2 rounded-md"></div>
+          <p class="mt-1 text-sm text-dim">Name & Date</p>
+        </div>
+        <div>
+          <p class="font-medium text-primary-color">Your Company Approval:</p>
+          <div class="h-20 border border-gray-700 mt-2 rounded-md"></div>
+          <p class="mt-1 text-sm text-dim">Name & Date</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Export functionality (placeholder)
+document.getElementById('exportPDF').addEventListener('click', function() {
+alert('PDF export functionality would be implemented in the final version.');
+});
+
+document.getElementById('saveBtn').addEventListener('click', function() {
+alert('Save functionality would be implemented in the final version.');
+});
+
+document.getElementById('downloadBtn').addEventListener('click', function() {
+alert('Download functionality would be implemented in the final version.');
+});
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Print Project Pricing & Risk Manager</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Chart.js for visualizations -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+<style>
+:root {
+--primary-color: #a74e9e;
+--secondary-color: #933c85;
+--bg-dark: #1a1a1a;
+--bg-darker: #141414;
+--bg-card: rgba(43, 43, 43, 0.95);
+--text-light: #e6e6e6;
+--text-dim: #a0a0a0;
+--border-radius: 8px;
+--shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+--shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+--shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+--gradient-primary: linear-gradient(135deg, #a74e9e, #834D83);
+--transition-speed: 0.2s;
+}
+
+body {
+font-family: 'Roboto', sans-serif;
+background: var(--bg-dark);
+background-image: 
+    radial-gradient(circle at 100% 0%, rgba(167, 78, 158, 0.12) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(131, 77, 131, 0.12) 0%, transparent 40%);
+color: var(--text-light);
+margin: 0;
+padding: 20px;
+min-height: 100vh;
+line-height: 1.6;
+}
+
+.container {
+max-width: 1200px;
+margin: 0 auto;
+padding: 20px;
+}
+
+.input-field {
+width: 100%;
+padding: 12px 16px;
+border: 1px solid rgba(167, 78, 158, 0.3);
+border-radius: var(--border-radius);
+background: rgba(26, 26, 26, 0.8);
+color: var(--text-light);
+font-size: 16px;
+transition: all var(--transition-speed);
+box-shadow: var(--shadow-sm);
+}
+
+.input-field:focus {
+outline: none;
+border-color: var(--primary-color);
+box-shadow: 0 0 0 3px rgba(167, 78, 158, 0.2);
+background: rgba(26, 26, 26, 0.95);
+}
+
+.input-field:hover {
+border-color: rgba(167, 78, 158, 0.5);
+}
+
+.label {
+display: block;
+margin-bottom: 8px;
+font-size: 14px;
+color: var(--text-light);
+}
+
+.info-icon {
+color: var(--text-dim);
+cursor: help;
+margin-left: 5px;
+}
+
+.tab-button {
+padding: 10px 16px;
+border-bottom: 2px solid transparent;
+background: transparent;
+color: var(--text-dim);
+transition: all var(--transition-speed);
+cursor: pointer;
+}
+
+.active-tab {
+border-color: var(--primary-color);
+color: var(--text-light);
+font-weight: 500;
+}
+
+.tooltip {
+position: relative;
+display: inline-block;
+}
+
+.tooltip .tooltiptext {
+visibility: hidden;
+width: 200px;
+background-color: var(--bg-darker);
+color: var(--text-light);
+text-align: center;
+border-radius: var(--border-radius);
+padding: 8px;
+position: absolute;
+z-index: 1;
+bottom: 125%;
+left: 50%;
+margin-left: -100px;
+opacity: 0;
+transition: opacity 0.3s;
+font-weight: normal;
+font-size: 12px;
+border: 1px solid rgba(167, 78, 158, 0.3);
+}
+
+.tooltip:hover .tooltiptext {
+visibility: visible;
+opacity: 1;
+}
+
+.button {
+background: var(--gradient-primary);
+color: white;
+border: none;
+padding: 14px 24px;
+border-radius: var(--border-radius);
+cursor: pointer;
+font-size: 16px;
+font-weight: 500;
+width: 100%;
+margin-bottom: 12px;
+transition: all var(--transition-speed);
+box-shadow: var(--shadow-sm);
+position: relative;
+overflow: hidden;
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 8px;
+}
+
+.button::after {
+content: '';
+position: absolute;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+background: linear-gradient(rgba(255, 255, 255, 0.1), transparent);
+opacity: 0;
+transition: opacity var(--transition-speed);
+}
+
+.button:hover::after {
+opacity: 1;
+}
+
+.button:active {
+transform: translateY(1px);
+box-shadow: var(--shadow-sm);
+}
+
+.button:disabled {
+opacity: 0.5;
+cursor: not-allowed;
+}
+
+.card {
+background: var(--bg-card);
+padding: 24px;
+border-radius: var(--border-radius);
+margin-bottom: 24px;
+border: 1px solid rgba(167, 78, 158, 0.2);
+box-shadow: var(--shadow-lg);
+backdrop-filter: blur(10px);
+}
+
+.card h3 {
+color: var(--primary-color);
+margin-top: 0;
+margin-bottom: 20px;
+font-size: 20px;
+border-bottom: 2px solid rgba(167, 78, 158, 0.2);
+padding-bottom: 10px;
+}
+
+@keyframes fadeIn {
+from { opacity: 0; transform: translateY(-10px); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+.btn-icon {
+width: 20px;
+height: 20px;
+stroke: currentColor;
+fill: none;
+stroke-width: 2;
+stroke-linecap: round;
+stroke-linejoin: round;
+}
+
+/* Add these styles to your existing CSS */
+
+.image-container {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.image-container:hover {
+  background-color: rgba(167, 78, 158, 0.15) !important;
+  border-color: rgba(167, 78, 158, 0.5) !important;
+}
+
+.image-container p {
+  pointer-events: none;
+}
+
+.drag-active {
+  border-color: var(--primary-color) !important;
+  background-color: rgba(167, 78, 158, 0.2) !important;
+}
+
+#sliceImagesContainer .image-wrapper {
+  position: relative;
+  height: 120px;
+  overflow: hidden;
+  border-radius: var(--border-radius);
+  background-color: rgba(26, 26, 26, 0.6);
+}
+
+/* Add these styles to your existing CSS */
+
+.image-container {
+  width: 100%;
+  min-height: 320px;
+  background-color: rgba(167, 78, 158, 0.1);
+  border: 2px dashed rgba(167, 78, 158, 0.3);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.image-container:hover {
+  background-color: rgba(167, 78, 158, 0.15);
+  border-color: rgba(167, 78, 158, 0.5);
+}
+
+.image-container p {
+  pointer-events: none;
+}
+
+.drag-active {
+  border-color: var(--primary-color) !important;
+  background-color: rgba(167, 78, 158, 0.2) !important;
+}
+
+#sliceImagesContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+#sliceImagesContainer .image-wrapper {
+  position: relative;
+  height: 120px;
+  overflow: hidden;
+  border-radius: var(--border-radius);
+  background-color: rgba(26, 26, 26, 0.6);
+}
+
+#sliceImagesContainer img {
+  transition: transform 0.3s ease;
+}
+
+#sliceImagesContainer .image-wrapper:hover img {
+  transform: scale(1.05);
+}
+
+/* For touch devices - make buttons bigger and more spaced */
+@media (pointer: coarse) {
+  #sliceImagesContainer .btn-icon {
+    width: 24px;
+    height: 24px;
+  }
+  
+  #sliceImagesContainer button {
+    padding: 8px;
+  }
+}
+
+/* Responsive grid for images */
+@media (min-width: 768px) {
+  #sliceImagesContainer {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  #sliceImagesContainer {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Image upload button enhancements */
+.upload-button {
+  background: linear-gradient(135deg, rgba(167, 78, 158, 0.8), rgba(131, 77, 131, 0.8));
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--border-radius);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px auto;
+}
+
+.upload-button:hover {
+  background: linear-gradient(135deg, rgba(167, 78, 158, 1), rgba(131, 77, 131, 1));
+  transform: translateY(-1px);
+}
+
+/* For the report view image gallery */
+.report-image-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.report-image-item {
+  border: 1px solid rgba(167, 78, 158, 0.3);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  background: rgba(26, 26, 26, 0.4);
+}
+
+.report-image-container {
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.report-image-container img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.report-image-caption {
+  padding: 8px 12px;
+  background: rgba(167, 78, 158, 0.1);
+}
+
+/* Image zoom on hover in report */
+.report-image-container img {
+  transition: transform 0.3s ease;
+}
+
+.report-image-container:hover img {
+  transform: scale(1.05);
+}
+
+/* Camera modal styles */
+.camera-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-container {
+  width: 90%;
+  max-width: 600px;
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+#cameraPreview {
+  width: 100%;
+  height: auto;
+  background: #000;
+  display: block;
+}
+
+.camera-controls {
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.camera-controls .button {
+  margin: 0;
+  width: 48%;
+}
+
+/* Loading indicator for image processing */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius);
+  z-index: 10;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(167, 78, 158, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Image controls */
+.image-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.image-wrapper:hover .image-controls {
+  opacity: 1;
+}
+
+.control-button {
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.control-button:hover {
+  color: var(--primary-color);
+}
+
+/* Fullscreen image view */
+.fullscreen-view {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.fullscreen-image {
+  max-width: 90%;
+  max-height: 80%;
+  object-fit: contain;
+}
+
+.close-fullscreen {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.fullscreen-controls {
+  margin-top: 16px;
+  display: flex;
+  gap: 16px;
+}
+
+#sliceImagesContainer img {
+  transition: transform 0.3s ease;
+}
+
+#sliceImagesContainer .image-wrapper:hover img {
+  transform: scale(1.05);
+}
+
+/* Responsive grid for images */
+@media (min-width: 768px) {
+  #sliceImagesContainer {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  #sliceImagesContainer {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Image upload button enhancements */
+.upload-button {
+  background: linear-gradient(135deg, rgba(167, 78, 158, 0.8), rgba(131, 77, 131, 0.8));
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--border-radius);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px auto;
+}
+
+.upload-button:hover {
+  background: linear-gradient(135deg, rgba(167, 78, 158, 1), rgba(131, 77, 131, 1));
+  transform: translateY(-1px);
+}
+
+/* For the report view image gallery */
+.report-image-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.report-image-item {
+  border: 1px solid rgba(167, 78, 158, 0.3);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  background: rgba(26, 26, 26, 0.4);
+}
+
+.report-image-container {
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.report-image-container img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.report-image-caption {
+  padding: 8px 12px;
+  background: rgba(167, 78, 158, 0.1);
+}
+
+/* Image zoom on hover in report */
+.report-image-container img {
+  transition: transform 0.3s ease;
+}
+
+.report-image-container:hover img {
+  transform: scale(1.05);
+}
+
+.status-banner {
+background: var(--bg-card);
+padding: 20px;
+border-radius: var(--border-radius);
+margin-bottom: 24px;
+border: 1px solid rgba(167, 78, 158, 0.2);
+box-shadow: var(--shadow-md);
+backdrop-filter: blur(10px);
+}
+
+.status-banner h1 {
+margin: 0;
+font-size: 28px;
+display: flex;
+align-items: center;
+gap: 12px;
+color: var(--primary-color);
+}
+
+.status-banner h1::before {
+content: "";
+display: inline-block;
+width: 10px;
+height: 10px;
+border-radius: 50%;
+background: var(--primary-color);
+box-shadow: 0 0 12px var(--primary-color);
+animation: pulse 2s infinite;
+}
+
+.close-button {
+background: transparent;
+border: none;
+color: var(--text-light);
+cursor: pointer;
+width: 32px;
+height: 32px;
+display: flex;
+align-items: center;
+justify-content: center;
+border-radius: 50%;
+transition: background-color 0.2s;
+}
+
+.close-button:hover {
+background-color: rgba(167, 78, 158, 0.2);
+}
+
+.image-container {
+width: 100%;
+min-height: 320px;
+background-color: rgba(167, 78, 158, 0.1);
+border: 2px dashed rgba(167, 78, 158, 0.3);
+border-radius: 8px;
+display: flex;
+align-items: center;
+justify-content: center;
+position: relative;
+margin-bottom: 20px;
+}
+
+.metric-item {
+background: rgba(167, 78, 158, 0.1);
+padding: 1rem;
+border-radius: var(--border-radius);
+border: 1px solid rgba(167, 78, 158, 0.2);
+margin-bottom: 1rem;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="status-banner">
+<h1>3D Print Project Pricing & Risk Manager</h1>
+<p class="text-dim">Create accurate quotes with comprehensive risk assessment for LFAM robot print projects</p>
+</div>
+
+<div class="card">
+<div class="mb-6 border-b border-gray-700">
+  <nav class="flex space-x-6">
+    <button id="tab-project" class="tab-button active-tab" onclick="switchView('project')">
+      Project Details
+    </button>
+    <button id="tab-risk" class="tab-button" onclick="switchView('risk')">
+      Risk Assessment
+    </button>
+    <button id="tab-terms" class="tab-button" onclick="switchView('terms')">
+      Terms & Pricing
+    </button>
+    <button id="tab-report" class="tab-button" onclick="switchView('report')">
+      Client Report
+    </button>
+  </nav>
+</div>
+
+<!-- Project Details View -->
+<div id="view-project" class="space-y-6">
+  <h2 class="text-2xl font-bold text-primary-color">Project Information</h2>
+  
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="label">Client Name</label>
+      <input type="text" id="clientName" class="input-field">
+    </div>
+    
+    <div>
+      <label class="label">Project Name</label>
+      <input type="text" id="projectName" class="input-field">
+    </div>
+  </div>
+  
+  <div>
+    <label class="label">Project Description</label>
+    <textarea id="description" class="input-field" rows="3"></textarea>
+  </div>
+  
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="label">Start Date</label>
+      <input type="date" id="startDate" class="input-field">
+    </div>
+    
+    <div>
+      <label class="label">Target End Date</label>
+      <input type="date" id="targetEndDate" class="input-field">
+    </div>
+  </div>
+  
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="label">Material Type</label>
+      <input type="text" id="materialType" class="input-field" placeholder="e.g., PLA, ABS, PETG, etc.">
+    </div>
+    
+    <div>
+      <label class="label">Project Complexity</label>
+      <select id="complexity" class="input-field">
+        <option value="low">Low</option>
+        <option value="medium" selected>Medium</option>
+        <option value="high">High</option>
+        <option value="very high">Very High</option>
+      </select>
+      <div class="tooltip">
+        <span class="info-icon">ⓘ</span>
+        <span class="tooltiptext">Affects overall pricing through a multiplier. Higher complexity = higher risk</span>
+      </div>
+    </div>
+  </div>
+  
+  <div>
+    <label class="label">Dimensions (mm) - For Reference Only</label>
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <label class="block text-xs text-dim">X</label>
+        <input type="number" id="dimensionX" class="input-field" placeholder="Width">
+      </div>
+      <div>
+        <label class="block text-xs text-dim">Y</label>
+        <input type="number" id="dimensionY" class="input-field" placeholder="Depth">
+      </div>
+      <div>
+        <label class="block text-xs text-dim">Z</label>
+        <input type="number" id="dimensionZ" class="input-field" placeholder="Height">
+      </div>
+    </div>
+  </div>
+  
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="label">
+        Material Estimate (kg)
+        <div class="tooltip">
+          <span class="info-icon">ⓘ</span>
+          <span class="tooltiptext">Direct estimate of material needed before waste factor</span>
+        </div>
+      </label>
+      <input type="number" id="materialEstimateKg" class="input-field" value="1" min="0.1" step="0.1" placeholder="Enter estimated KG from slicer">
+    </div>
+    
+    <div>
+      <label class="label">
+        Waste Factor (%)
+        <div class="tooltip">
+          <span class="info-icon">ⓘ</span>
+          <span class="tooltiptext">Accounts for failed prints, support material, and other waste. 20% is typical for standard projects, 40%+ for complex ones</span>
+        </div>
+      </label>
+      <input type="number" id="wasteFactor" class="input-field" value="20" min="0" max="100" placeholder="Typically 20-40%">
+    </div>
+  </div>
+  
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="label">
+        Material Cost (£/kg)
+        <div class="tooltip">
+          <span class="info-icon">ⓘ</span>
+          <span class="tooltiptext">Cost per kilogram of material, including shipping and handling</span>
+        </div>
+      </label>
+      <input type="number" id="materialCostPerKg" class="input-field" value="50" min="1" placeholder="Cost per kg">
+    </div>
+    
+    <div>
+      <label class="label">
+        R&D Days
+        <div class="tooltip">
+          <span class="info-icon">ⓘ</span>
+          <span class="tooltiptext">Number of days at £1,000 per day for development, testing, and refinement</span>
+        </div>
+      </label>
+      <input type="number" id="rdDays" class="input-field" value="1" min="1" placeholder="Days at £1,000 each">
+    </div>
+  </div>
+  
+  <div>
+    <label class="label">
+      Project Narrative
+      <div class="tooltip">
+        <span class="info-icon">ⓘ</span>
+        <span class="tooltiptext">Detailed description of the project to include in the report</span>
+      </div>
+    </label>
+    <textarea id="narrative" class="input-field" rows="4" placeholder="Provide a detailed description of the project, its goals, and any specific challenges. This will appear in the report as a narrative."></textarea>
+  </div>
+  
+  <div>
+    <label class="label">
+      Technical Print Notes
+      <div class="tooltip">
+        <span class="info-icon">ⓘ</span>
+        <span class="tooltiptext">Technical notes about the printing process, settings, and concerns</span>
+      </div>
+    </label>
+    <textarea id="printNotes" class="input-field" rows="3" placeholder="Notes about print orientation, support requirements, post-processing needs, etc."></textarea>
+  </div>
+  
+  <div>
+    <label class="label mb-2">
+      Upload Slice Screenshots
+      <div class="tooltip">
+        <span class="info-icon">ⓘ</span>
+        <span class="tooltiptext">Add images from your slicer software showing the part or print setup</span>
+      </div>
+    </label>
+    <div class="image-container">
+        <p class="text-dim">
+          Drag and drop slice screenshots here, or click to select files
+        </p>
+        <p class="text-xs text-dim mt-1">
+          (This is a prototype. In a real app, you would upload images here)
+        </p>
+        <button 
+          class="mt-4 px-4 py-2 button"
+          style="max-width: 200px; margin: 10px auto;"
+          onclick="addPlaceholderImage()"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24">
+            <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+          Add Screenshot
+        </button>
+      </div>
+    
+    <div id="sliceImagesContainer" class="mt-4 grid grid-cols-2 gap-4">
+      <!-- Images will be added here -->
+    </div>
+  </div>
+  
+  <div>
+    <label class="label mb-2">Project Milestones</label>
+    <div id="milestonesContainer">
+      <!-- Milestones will be added here -->
+    </div>
+    <button 
+      class="text-primary-color hover:text-secondary-color"
+      style="display: inline-flex; align-items: center; gap: 5px;"
+      onclick="addMilestone()"
+    >
+      <svg class="btn-icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+        <path d="M12 5v14m-7-7h14"></path>
+      </svg>
+      Add Milestone
+    </button>
+  </div>
+  
+  <div class="flex justify-end space-x-4">
+    <button 
+      class="button"
+      style="max-width: 250px;"
+      onclick="switchView('risk')"
+    >
+      <svg class="btn-icon" viewBox="0 0 24 24">
+        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      </svg>
+      Continue to Risk Assessment
+    </button>
+  </div>
+</div>
+
+<!-- Risk Assessment View -->
+<div id="view-risk" class="space-y-6 hidden">
+  <h2 class="text-2xl font-bold text-primary-color">Risk Assessment</h2>
+  
+  <div class="mb-4 p-4 bg-card" style="background: rgba(167, 78, 158, 0.1);">
+    <p class="text-dim">
+      Quickly identify key project risks. Select a risk type, the risk level, and whether the client will bear the cost.
+    </p>
+  </div>
+  
+  <div id="risksContainer">
+    <!-- Risks will be added here -->
+  </div>
+  
+  <div class="flex justify-center">
+    <button 
+      class="button"
+      style="max-width: 250px;"
+      onclick="addRisk()"
+    >
+      <svg class="btn-icon" viewBox="0 0 24 24">
+        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      </svg>
+      Add Another Risk
+    </button>
+  </div>
+  
+  <div id="riskChartContainer" class="mt-6 p-4 border border-gray-700 rounded-lg">
+    <h3 class="text-lg font-medium mb-4 text-primary-color">Risk Overview</h3>
+    <div class="h-64">
+      <canvas id="riskChart"></canvas>
+    </div>
+  </div>
+  
+  <div class="flex justify-between space-x-4">
+    <button 
+      class="button"
+      style="background: rgba(167, 78, 158, 0.2); max-width: 200px;"
+      onclick="switchView('project')"
+    >
+      <svg class="btn-icon" viewBox="0 0 24 24">
+        <path d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
+      </svg>
+      Back to Project Details
+    </button>
+    <button 
+      class="button"
+      style="max-width: 200px;"
+      onclick="switchView('terms')"
+    >
+      <svg class="btn-icon" viewBox="0 0 24 24">
+        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+      </svg>
+      Continue to Terms
+    </button>
+  </div>
+</div>
+
+<!-- Terms View -->
+<div id="view-terms" class="space-y-6 hidden">
+  <h2 class="text-2xl font-bold text-primary-color">Project Terms & Conditions</h2>
+  
+  <div class="mb-4 p-4 bg-card" style="background: rgba(167, 78, 158, 0.1);">
+    <p class="text-dim">
+      Define the terms that will be included in the client report. These terms clarify responsibility for risks and additional costs.
+    </p>
+  </div>
+  
+  <div class="space-y-4">
+    <div class="flex items-start space-x-3">
+      <input
+        type="checkbox"
+        id="standardTerms"
+        class="mt-1"
+        checked
+      >
+      <div>
+        <label for="standardTerms" class="label">Standard Terms</label>
+        <p class="text-dim">
+          Our company will take on delivery risk for the defined scope. Any additional time required to meet the scope will not be charged to the client.
+        </p>
+      </div>
+    </div>
+    
+    <div class="flex items-start space-x-3">
+      <input
+        type="checkbox"
+        id="complexTerms"
+        class="mt-1"
+      >
+      <div>
+        <label for="complexTerms" class="label">Complex Project Terms</label>
+        <p class="text-dim">
+          Due to the complex nature of this project, additional time and costs associated with identified risks will be passed to the client. There may be aspects of the scope that cannot be achieved within the estimated timeframe.
+        </p>
+      </div>
+    </div>
+    
+    <div>
+      <label class="label">Additional Terms & Conditions</label>
+      <textarea
+        id="additionalTerms"
+        class="input-field"
+        rows="4"
+      ></textarea>
+    </div>
+  </div>
+  
+  <div id="costSummary" class="mt-8 card">
+    <h3 class="text-lg font-medium mb-4 text-primary-color">Cost Summary</h3>
+    
+    <!-- Cost summary will be added here -->
+  </div>
+  
+  <div class="flex justify-between space-x-4">
+    <button 
+      class="button"
+      style="background: rgba(167, 78, 158, 0.2); max-width: 200px;"
+      onclick="switchView('risk')"
+    >
+      <svg class="btn-icon" viewBox="0 0 24 24">
+        <path d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
+      </svg>
+      Back to Risk Assessment
+    </button>
+    <button 
+      class="button"
+      style="max-width: 250px;"
+      onclick="switchView('report')"
+    >
+      <svg class="btn-icon" viewBox="0 0 24 24">
+        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+      </svg>
+      Generate Client Report
+    </button>
+  </div>
+</div>
+
+<!-- Report View -->
+<div id="view-report" class="space-y-6 hidden">
+  <div class="flex justify-between items-center">
+    <h2 class="text-2xl font-bold text-primary-color">3D Print Project Report</h2>
+    <div class="flex space-x-2">
+      <button id="saveBtn" class="p-2 border border-gray-600 rounded-md">
+        <svg viewBox="0 0 24 24" class="btn-icon">
+          <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+        </svg>
+      </button>
+      <button id="downloadBtn" class="p-2 border border-gray-600 rounded-md">
+        <svg viewBox="0 0 24 24" class="btn-icon">
+          <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        </svg>
+      </button>
+      <button id="printBtn" class="p-2 border border-gray-600 rounded-md" onclick="window.print()">
+        <svg viewBox="0 0 24 24" class="btn-icon">
+          <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+  
+  <div id="reportContent" class="p-6 bg-card rounded-lg">
+    <!-- Report content will be generated here -->
+  </div>
+  
+  <div class="flex justify-between space-x-4">
+    <button 
+      class="button"
+      style="background: rgba(167, 78, 158, 0.2); max-width: 200px;"
+      onclick="switchView('terms')"
+    >
+      <svg class="btn-icon" viewBox="0 0 24 24">
+        <path d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
+      </svg>
+      Back to Terms
+    </button>
+    <div class="flex space-x-2">
+      <button onclick="window.print()" class="button" style="max-width: 180px;">
+        <svg class="btn-icon" viewBox="0 0 24 24">
+          <path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+        </svg>
+        Print Report
+      </button>
+      <button id="exportPDF" class="button" style="max-width: 180px;">
+        <svg class="btn-icon" viewBox="0 0 24 24">
+          <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        </svg>
+        Export PDF
+      </button>
+    </div>
+  </div>
