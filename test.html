@@ -809,6 +809,8 @@ function renderSliceImages() {
   });
 }
 
+
+
 // Update the image container to include camera option for mobile devices
 
 // Fix the enhanceImageUploadContainer function to remove the duplicate Take Photo button
@@ -845,6 +847,261 @@ function enhanceImageUploadContainer() {
   }
 }
 // Add CSS for camera modal
+
+// Create a dark-themed PDF export function that matches your online visuals
+function darkThemePDFExport() {
+  document.getElementById('exportPDF').addEventListener('click', function() {
+    // Show loading overlay
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'pdf-loading-overlay';
+    loadingOverlay.innerHTML = `
+      <div class="pdf-spinner"></div>
+      <p style="color: white; font-size: 18px; margin-top: 20px;">Generating PDF, please wait...</p>
+    `;
+    document.body.appendChild(loadingOverlay);
+    
+    setTimeout(() => {
+      try {
+        // Get report content
+        const reportContent = document.getElementById('reportContent');
+        const projectName = appData.project.projectName || "3D_Print_Project";
+        const safeProjectName = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        
+        // Create a clone of the report
+        const reportClone = reportContent.cloneNode(true);
+        
+        // Apply your dark theme styling for PDF
+        reportClone.style.cssText = `
+          background-color: #1a1a1a;
+          color: #e6e6e6;
+          padding: 20px;
+          font-family: 'Roboto', sans-serif;
+          position: absolute;
+          left: -9999px;
+          width: 210mm; /* A4 width */
+          border-radius: 8px;
+        `;
+        
+        // Style heading elements
+        const headings = reportClone.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        headings.forEach(heading => {
+          heading.style.color = '#a74e9e'; // Primary color
+          heading.style.fontWeight = 'bold';
+          heading.style.marginBottom = '10px';
+        });
+        
+        // Style table elements
+        const tables = reportClone.querySelectorAll('table');
+        tables.forEach(table => {
+          table.style.borderCollapse = 'collapse';
+          table.style.width = '100%';
+          table.style.marginBottom = '20px';
+          
+          // Style table headers
+          const headers = table.querySelectorAll('th');
+          headers.forEach(header => {
+            header.style.backgroundColor = 'rgba(167, 78, 158, 0.2)';
+            header.style.color = '#a74e9e';
+            header.style.padding = '10px';
+            header.style.border = '1px solid #444';
+            header.style.textAlign = 'left';
+          });
+          
+          // Style table cells
+          const cells = table.querySelectorAll('td');
+          cells.forEach(cell => {
+            cell.style.border = '1px solid #444';
+            cell.style.padding = '8px';
+            cell.style.color = '#e6e6e6';
+          });
+        });
+        
+        // Style card-like elements
+        const cardDivs = reportClone.querySelectorAll('div[class*="border"], div[class*="bg-card"]');
+        cardDivs.forEach(div => {
+          div.style.backgroundColor = 'rgba(167, 78, 158, 0.1)';
+          div.style.border = '1px solid rgba(167, 78, 158, 0.3)';
+          div.style.borderRadius = '8px';
+          div.style.padding = '12px';
+          div.style.marginBottom = '16px';
+        });
+        
+        // Style images for better quality
+        const images = reportClone.querySelectorAll('img');
+        images.forEach(img => {
+          img.style.maxWidth = '100%';
+          img.style.height = 'auto';
+          img.style.objectFit = 'contain';
+          img.style.margin = '10px 0';
+          // Subtle border for images in dark theme
+          img.style.border = '1px solid rgba(167, 78, 158, 0.3)';
+          img.style.borderRadius = '4px';
+          img.style.padding = '4px';
+        });
+        
+        // Handle dim text specifically
+        const dimText = reportClone.querySelectorAll('.text-dim');
+        dimText.forEach(element => {
+          element.style.color = '#a0a0a0';
+        });
+        
+        // Append to body temporarily to render it
+        document.body.appendChild(reportClone);
+        
+        // Use html2canvas with dark theme settings
+        html2canvas(reportClone, {
+          scale: 2, // Higher quality
+          backgroundColor: '#1a1a1a', // Match dark background
+          logging: false,
+          useCORS: true,
+          allowTaint: true
+        }).then(canvas => {
+          // Clean up the temporary clone
+          document.body.removeChild(reportClone);
+          
+          // Create PDF with jsPDF
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF('p', 'mm', 'a4');
+          
+          // Calculate dimensions
+          const imgData = canvas.toDataURL('image/jpeg', 1.0);
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          const imgWidth = pageWidth;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          
+          // Add content to PDF with pagination
+          let heightLeft = imgHeight;
+          let position = 0;
+          let pageCount = 1;
+          
+          // Add first page
+          pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+          
+          // Add subsequent pages if needed
+          while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pageCount++;
+            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+          }
+          
+          // Add page numbers in a style that works with dark background
+          for (let i = 1; i <= pageCount; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(10);
+            pdf.setTextColor(180, 180, 180);
+            pdf.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+          }
+          
+          // Save the PDF
+          pdf.save(`${safeProjectName}_report.pdf`);
+          
+          // Remove loading overlay
+          document.body.removeChild(loadingOverlay);
+        }).catch(error => {
+          console.error("Canvas error:", error);
+          document.body.removeChild(loadingOverlay);
+          alert('Error generating PDF. Please try again or use the Print function instead.');
+        });
+      } catch (error) {
+        console.error("PDF generation error:", error);
+        document.body.removeChild(loadingOverlay);
+        alert('Error generating PDF. Please try again or use the Print function instead.');
+      }
+    }, 300); // Short delay to allow overlay to render
+  });
+}
+
+// Add CSS for loading overlay
+function addDarkPDFExportStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .pdf-loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .pdf-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(167, 78, 158, 0.3);
+      border-radius: 50%;
+      border-top-color: #a74e9e;
+      animation: pdf-spin 1s linear infinite;
+    }
+    
+    @keyframes pdf-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `;
+  
+  document.head.appendChild(style);
+}
+
+// Ensure required libraries are loaded
+function loadExternalLibraries() {
+  return new Promise((resolve, reject) => {
+    // Load jsPDF if not already present
+    if (typeof window.jspdf === 'undefined') {
+      const jspdfScript = document.createElement('script');
+      jspdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      jspdfScript.onload = checkLibraries;
+      jspdfScript.onerror = () => reject('Failed to load jsPDF');
+      document.head.appendChild(jspdfScript);
+    }
+    
+    // Load html2canvas if not already present
+    if (typeof html2canvas === 'undefined') {
+      const html2canvasScript = document.createElement('script');
+      html2canvasScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      html2canvasScript.onload = checkLibraries;
+      html2canvasScript.onerror = () => reject('Failed to load html2canvas');
+      document.head.appendChild(html2canvasScript);
+    }
+    
+    function checkLibraries() {
+      if (typeof window.jspdf !== 'undefined' && typeof html2canvas !== 'undefined') {
+        resolve();
+      }
+    }
+    
+    // If libraries are already loaded
+    checkLibraries();
+  });
+}
+
+// Initialize PDF export
+function initializeDarkPDFExport() {
+  // Add PDF-specific styles
+  addDarkPDFExportStyles();
+  
+  // Make sure jsPDF and html2canvas are loaded
+  if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
+    loadExternalLibraries().then(() => {
+      darkThemePDFExport();
+    });
+  } else {
+    darkThemePDFExport();
+  }
+}
+
+// Call this function when the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  initializeDarkPDFExport();
+});
 
 // Updated calendar button styles to hide the native icon and only use our custom one
 function addCalendarButtonStyles() {
@@ -1090,160 +1347,7 @@ function addJsPDFLibrary() {
 }
 
 // Improved PDF export function that preserves the styling
-function implementStyledPDFExport() {
-  document.getElementById('exportPDF').addEventListener('click', function() {
-    // Show a loading overlay
-    const loadingOverlay = document.createElement('div');
-    loadingOverlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      color: white;
-      font-family: 'Roboto', sans-serif;
-    `;
-    loadingOverlay.innerHTML = `
-      <div class="spinner" style="margin-bottom: 20px;"></div>
-      <p style="font-size: 18px;">Generating PDF, please wait...</p>
-    `;
-    document.body.appendChild(loadingOverlay);
-    
-    setTimeout(() => {
-      try {
-        // Get report content
-        const reportContent = document.getElementById('reportContent');
-        const projectName = appData.project.projectName || "3D_Print_Project";
-        const safeProjectName = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        
-        // Create a styled clone of the report with custom background and colors
-        const reportClone = reportContent.cloneNode(true);
-        
-        // Apply your custom styling to the clone
-        reportClone.style.cssText = `
-          background-color: var(--bg-dark);
-          color: var(--text-light);
-          padding: 20px;
-          font-family: 'Roboto', sans-serif;
-          position: absolute;
-          left: -9999px;
-          width: 210mm; /* A4 width */
-          border-radius: var(--border-radius);
-        `;
-        
-        // Add style for heading elements in the report
-        const headings = reportClone.querySelectorAll('h1, h2, h3, h4, h5, h6');
-        headings.forEach(heading => {
-          heading.style.color = '#a74e9e'; // Primary color
-          heading.style.fontWeight = 'bold';
-        });
-        
-        // Style table elements
-        const tables = reportClone.querySelectorAll('table');
-        tables.forEach(table => {
-          table.style.borderCollapse = 'collapse';
-          table.style.width = '100%';
-          
-          // Style table headers
-          const headers = table.querySelectorAll('th');
-          headers.forEach(header => {
-            header.style.backgroundColor = 'rgba(167, 78, 158, 0.2)';
-            header.style.color = '#a74e9e';
-            header.style.padding = '8px';
-            header.style.border = '1px solid #555';
-            header.style.textAlign = 'left';
-          });
-          
-          // Style table cells
-          const cells = table.querySelectorAll('td');
-          cells.forEach(cell => {
-            cell.style.border = '1px solid #555';
-            cell.style.padding = '8px';
-          });
-        });
-        
-        // Style divs with card-like appearance
-        const cardDivs = reportClone.querySelectorAll('div[class*="border"]');
-        cardDivs.forEach(div => {
-          div.style.backgroundColor = 'rgba(167, 78, 158, 0.1)';
-          div.style.border = '1px solid rgba(167, 78, 158, 0.3)';
-          div.style.borderRadius = '8px';
-          div.style.padding = '12px';
-          div.style.marginBottom = '16px';
-        });
-        
-        // Style images for better print quality
-        const images = reportClone.querySelectorAll('img');
-        images.forEach(img => {
-          img.style.maxWidth = '100%';
-          img.style.height = 'auto';
-          img.style.objectFit = 'contain';
-        });
-        
-        // Append to body temporarily to render it
-        document.body.appendChild(reportClone);
-        
-        // Use html2canvas with appropriate settings for your dark theme
-        html2canvas(reportClone, {
-          scale: 2, // Higher quality
-          backgroundColor: '#1a1a1a', // Match your dark background
-          logging: false,
-          useCORS: true,
-          allowTaint: true
-        }).then(canvas => {
-          // Clean up the temporary clone
-          document.body.removeChild(reportClone);
-          
-          // Create PDF with jsPDF
-          const { jsPDF } = window.jspdf;
-          const doc = new jsPDF('p', 'mm', 'a4');
-          
-          // Calculate dimensions
-          const imgData = canvas.toDataURL('image/jpeg', 0.95);
-          const imgWidth = 210; // A4 width in mm
-          const pageHeight = 297; // A4 height in mm
-          const imgHeight = canvas.height * imgWidth / canvas.width;
-          let heightLeft = imgHeight;
-          let position = 0;
-          
-          // Add first page
-          doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
-          
-          // Add subsequent pages if needed
-          while (heightLeft > 0) {
-            position = heightLeft - imgHeight;
-            doc.addPage();
-            doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-          }
-          
-          // Save the PDF
-          doc.save(`${safeProjectName}_report.pdf`);
-          
-          // Remove loading overlay
-          document.body.removeChild(loadingOverlay);
-        }).catch(error => {
-          console.error("Canvas error:", error);
-          document.body.removeChild(loadingOverlay);
-          alert('Error generating PDF. Please try again or use the Print function instead.');
-        });
-      } catch (error) {
-        console.error("PDF generation error:", error);
-        document.body.removeChild(loadingOverlay);
-        
-        // Show error message
-        alert('Error generating PDF. Please try again or use the Print function instead.');
-      }
-    }, 300); // Short delay to allow overlay to render
-  });
-}
+
 
 // Add custom styles specific to PDF export
 function addPDFExportStyles() {
@@ -1327,18 +1431,7 @@ function addPDFExportStyles() {
 }
 
 // Initialize the PDF export functionality
-function initializePDFExport() {
-  // Add the necessary libraries
-  addJsPDFLibrary();
-  
-  // Add special styles for PDF export
-  addPDFExportStyles();
-  
-  // Wait a moment for libraries to load before implementing
-  setTimeout(() => {
-    implementStyledPDFExport();
-  }, 1000);
-}
+
 
 // Call this function when the DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -1346,122 +1439,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Alternative export implementation that handles multi-page reports better
-function implementImprovedPDFExport() {
-  document.getElementById('exportPDF').addEventListener('click', function() {
-    // Show a loading overlay on the entire report view
-    const loadingOverlay = document.createElement('div');
-    loadingOverlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    `;
-    loadingOverlay.innerHTML = `
-      <div class="spinner" style="margin-bottom: 20px;"></div>
-      <p style="color: white; font-size: 18px;">Generating PDF, please wait...</p>
-    `;
-    document.body.appendChild(loadingOverlay);
-    
-    setTimeout(() => {
-      try {
-        // Get report content
-        const reportContent = document.getElementById('reportContent');
-        const projectName = appData.project.projectName || "3D_Print_Project";
-        const safeProjectName = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        
-        // Create a temporary clone of the report with white background for better PDF
-        const reportClone = reportContent.cloneNode(true);
-        reportClone.style.backgroundColor = 'white';
-        reportClone.style.color = 'black';
-        reportClone.style.padding = '20px';
-        reportClone.style.position = 'absolute';
-        reportClone.style.left = '-9999px';
-        document.body.appendChild(reportClone);
-        
-        // Fix styling for better PDF output
-        const allTexts = reportClone.querySelectorAll('p, h1, h2, h3, span, td, th, div');
-        allTexts.forEach(el => {
-          if (el.className !== 'spinner' && !el.className.includes('btn-icon')) {
-            el.style.color = 'black';
-          }
-        });
-        
-        // Make sure borders are visible
-        const borders = reportClone.querySelectorAll('table, td, th, .border');
-        borders.forEach(el => {
-          el.style.borderColor = '#ccc';
-        });
-        
-        // Use html2canvas to convert to image
-        html2canvas(reportClone, {
-          scale: 2,
-          backgroundColor: 'white',
-          logging: false,
-          useCORS: true
-        }).then(canvas => {
-          // Clean up the temporary clone
-          document.body.removeChild(reportClone);
-          
-          // Create PDF with jsPDF
-          const { jsPDF } = window.jspdf;
-          const doc = new jsPDF('p', 'mm', 'a4');
-          
-          // Calculate dimensions
-          const imgData = canvas.toDataURL('image/jpeg', 0.92);
-          const imgWidth = 210; // A4 width in mm
-          const pageHeight = 297; // A4 height in mm
-          const imgHeight = canvas.height * imgWidth / canvas.width;
-          let heightLeft = imgHeight;
-          let position = 0;
-          
-          // Add first page
-          doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
-          
-          // Add subsequent pages if needed
-          while (heightLeft > 0) {
-            position = heightLeft - imgHeight;
-            doc.addPage();
-            doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-          }
-          
-          // Save the PDF
-          doc.save(`${safeProjectName}_report.pdf`);
-          
-          // Remove loading overlay
-          document.body.removeChild(loadingOverlay);
-        });
-      } catch (error) {
-        console.error("PDF generation error:", error);
-        document.body.removeChild(loadingOverlay);
-        
-        // Show error message
-        alert('Error generating PDF. Please try again or use the Print function instead.');
-      }
-    }, 100);
-  });
-}
 
-// Call these functions after the DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-  // Add the necessary libraries
-  addJsPDFLibrary();
-  
-  // Wait a moment for libraries to load before implementing
-  setTimeout(() => {
-    // Choose one implementation based on your preference
-    // implementPDFExport();
-    implementImprovedPDFExport();
-  }, 1000);
-});
 
 // Update risk chart
 // Update risk chart with improved styling
