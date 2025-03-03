@@ -233,20 +233,7 @@ if (index !== -1) {
 }
 }
 
-// Add slice image
-function addPlaceholderImage() {
-const newId = appData.project.sliceImages.length > 0 
-  ? Math.max(...appData.project.sliceImages.map(i => i.id)) + 1 
-  : 1;
 
-appData.project.sliceImages.push({
-  id: newId,
-  name: `Slice_view_${newId}.png`,
-  description: ''
-});
-
-renderSliceImages();
-}
 
 // Remove slice image
 function removeSliceImage(id) {
@@ -255,42 +242,7 @@ renderSliceImages();
 }
 
 // Render slice images
-function renderSliceImages() {
-const container = document.getElementById('sliceImagesContainer');
-container.innerHTML = '';
 
-appData.project.sliceImages.forEach((image, index) => {
-  const imageElement = document.createElement('div');
-  imageElement.className = 'border border-gray-700 rounded-md p-2 flex flex-col';
-  imageElement.style.background = 'rgba(167, 78, 158, 0.1)';
-  imageElement.innerHTML = `
-    <div class="flex justify-between items-center mb-2">
-      <p class="text-sm truncate">${image.name}</p>
-      <button 
-        class="text-primary-color hover:text-secondary-color"
-        onClick="removeSliceImage(${image.id})"
-      >
-        <svg viewBox="0 0 24 24" class="btn-icon" style="width: 16px; height: 16px;">
-          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-        </svg>
-      </button>
-    </div>
-    <div style="background: rgba(26, 26, 26, 0.6); height: 120px; display: flex; align-items: center; justify-content: center; border-radius: var(--border-radius);">
-      <svg viewBox="0 0 24 24" style="width: 36px; height: 36px; stroke: var(--text-dim); fill: none; stroke-width: 1.5;">
-        <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-      </svg>
-    </div>
-    <input
-      class="mt-2 input-field"
-      placeholder="Caption/description"
-      value="${image.description}"
-      onInput="updateSliceImage(${image.id}, 'description', this.value)"
-    />
-  `;
-  
-  container.appendChild(imageElement);
-});
-}
 
 // Update slice image
 function updateSliceImage(id, field, value) {
@@ -527,59 +479,7 @@ function addImageToProject(file) {
   reader.readAsDataURL(file);
 }
 
-// Update the renderSliceImages function to display actual images
-function renderSliceImages() {
-  const container = document.getElementById('sliceImagesContainer');
-  container.innerHTML = '';
 
-  appData.project.sliceImages.forEach((image) => {
-    const imageElement = document.createElement('div');
-    imageElement.className = 'border border-gray-700 rounded-md p-2 flex flex-col';
-    imageElement.style.background = 'rgba(167, 78, 158, 0.1)';
-    
-    let imageContent;
-    if (image.dataUrl) {
-      // Real image from file upload
-      imageContent = `
-        <div style="height: 120px; display: flex; align-items: center; justify-content: center; border-radius: var(--border-radius); overflow: hidden;">
-          <img src="${image.dataUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="${image.name}">
-        </div>
-      `;
-    } else {
-      // Placeholder image
-      imageContent = `
-        <div style="background: rgba(26, 26, 26, 0.6); height: 120px; display: flex; align-items: center; justify-content: center; border-radius: var(--border-radius);">
-          <svg viewBox="0 0 24 24" style="width: 36px; height: 36px; stroke: var(--text-dim); fill: none; stroke-width: 1.5;">
-            <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-          </svg>
-        </div>
-      `;
-    }
-    
-    imageElement.innerHTML = `
-      <div class="flex justify-between items-center mb-2">
-        <p class="text-sm truncate">${image.name}</p>
-        <button 
-          class="text-primary-color hover:text-secondary-color"
-          onClick="removeSliceImage(${image.id})"
-        >
-          <svg viewBox="0 0 24 24" class="btn-icon" style="width: 16px; height: 16px;">
-            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-          </svg>
-        </button>
-      </div>
-      ${imageContent}
-      <input
-        class="mt-2 input-field"
-        placeholder="Caption/description"
-        value="${image.description}"
-        onInput="updateSliceImage(${image.id}, 'description', this.value)"
-      />
-    `;
-    
-    container.appendChild(imageElement);
-  });
-}
 
 // Initialize the file upload functionality
 function initializeFileUpload() {
@@ -3341,36 +3241,32 @@ margin-bottom: 1rem;
   </div>
   
   <div>
-    <label class="label mb-2">
-      Upload Slice Screenshots
-      <div class="tooltip">
-        <span class="info-icon">ⓘ</span>
-        <span class="tooltiptext">Add images from your slicer software showing the part or print setup</span>
-      </div>
-    </label>
-    <div class="image-container">
-        <p class="text-dim">
-          Drag and drop slice screenshots here, or click to select files
-        </p>
-        <p class="text-xs text-dim mt-1">
-          (This is a prototype. In a real app, you would upload images here)
-        </p>
-        <button 
-          class="mt-4 px-4 py-2 button"
-          style="max-width: 200px; margin: 10px auto;"
-          onclick="addPlaceholderImage()"
-        >
-          <svg class="btn-icon" viewBox="0 0 24 24">
-            <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-          </svg>
-          Add Screenshot
-        </button>
-      </div>
-    
-    <div id="sliceImagesContainer" class="mt-4 grid grid-cols-2 gap-4">
-      <!-- Images will be added here -->
-    </div>
+  <label class="label mb-2">
+  Upload Slice Screenshots
+  <div class="tooltip">
+    <span class="info-icon">ⓘ</span>
+    <span class="tooltiptext">Add images from your slicer software showing the part or print setup</span>
   </div>
+</label>
+<div class="image-container">
+  <p class="text-dim">
+    Drag and drop slice screenshots here, or click to select files
+  </p>
+  <button 
+    class="mt-4 px-4 py-2 button"
+    style="max-width: 200px; margin: 10px auto;"
+  >
+    <svg class="btn-icon" viewBox="0 0 24 24">
+      <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+    </svg>
+    Select Images
+  </button>
+</div>
+
+<div id="sliceImagesContainer" class="mt-4 grid grid-cols-2 gap-4">
+  <!-- Images will be added here -->
+</div>
+</div>
   
   <div>
     <label class="label mb-2">Project Milestones</label>
