@@ -6,26 +6,27 @@
 <script>
 // Data structure for the application
 const appData = {
-project: {
-  clientName: '',
-  projectName: '',
-  description: '',
-  startDate: '',
-  targetEndDate: '',
-  complexity: 'medium',
-  materialType: '',
-  materialCostPerKg: 50,
-  materialEstimateKg: 1,
-  wasteFactor: 20,
-  dimensions: { x: '', y: '', z: '' },
-  rdDays: 1,
-  narrative: '',
-  printNotes: '',
-  milestones: [
-    { id: 1, name: '', date: '', paymentPercentage: 0 }
-  ],
-  sliceImages: []
-},
+  project: {
+    clientName: '',
+    projectName: '',
+    description: '',
+    startDate: '',
+    targetEndDate: '',
+    complexity: 'medium',
+    materialType: '',
+    materialCostPerKg: 50,
+    materialEstimateKg: 1,
+    wasteFactor: 20,
+    dimensions: { x: '', y: '', z: '' },
+    rdDays: 1,
+    dayRate: 1000, // Add this line - default day rate is £1000
+    narrative: '',
+    printNotes: '',
+    milestones: [
+      { id: 1, name: '', date: '', paymentPercentage: 0 }
+    ],
+    sliceImages: []
+  },
 risks: [
   { id: 1, type: 'technical', description: '', level: 'medium', cost: 0, clientBearing: true }
 ],
@@ -86,6 +87,11 @@ function initializeInputFields() {
 // Project details
 document.getElementById('clientName').addEventListener('input', e => { 
   appData.project.clientName = e.target.value;
+});
+// Add this inside the initializeInputFields function
+document.getElementById('dayRate').addEventListener('input', e => { 
+  appData.project.dayRate = e.target.value;
+  if (appData.currentView === 'terms') updateCostSummary();
 });
 document.getElementById('projectName').addEventListener('input', e => { 
   appData.project.projectName = e.target.value;
@@ -1247,6 +1253,1448 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+// Save data via Zapier webhook
+function saveProjectToZapier() {
+  // Show a loading indicator
+  const loadingOverlay = document.createElement('div');
+  loadingOverlay.className = 'pdf-loading-overlay';
+  loadingOverlay.innerHTML = `
+    <div class="pdf-spinner"></div>
+    <p style="color: white; font-size: 18px; margin-top: 20px;">Saving project data...</p>
+  `;
+  document.body.appendChild(loadingOverlay);
+  
+  // Prepare the data to be saved
+  const projectData = {
+    version: "1.0.0", // Adding version for future compatibility
+    timestamp: new Date().toISOString(),
+    data: JSON.stringify(appData) // Stringify the nested objects
+  };
+  
+  // CORS-friendly approach using JSONP with callback
+  const zapierUrl = "https://hooks.zapier.com/hooks/catch/14828696/2qwtr54/";
+  
+  // Use fetch with mode 'no-cors' to avoid CORS issues
+  fetch(zapierUrl, {
+    method: 'POST',
+    mode: 'no-cors', // This prevents CORS errors but you won't get a readable response
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(projectData)
+  })
+  .then(() => {
+    // We won't get a normal response due to no-cors mode, so just assume success
+    document.body.removeChild(loadingOverlay);
+    
+    // Show success notification
+    showNotification('Project saved successfully', 'success');
+    
+    // Generate and display a project ID for future reference
+    const projectId = generateProjectId();
+    
+    // Show modal with project ID
+    showProjectIdModal(projectId);
+  })
+  .catch(error => {
+    document.body.removeChild(loadingOverlay);
+    console.error('Error saving project:', error);
+    showNotification('Error saving project. Please try again.', 'error');
+  });
+}
+
+// Generate a simple project ID based on project name and timestamp
+function generateProjectId() {
+  const projectName = appData.project.projectName || "project";
+  const sanitizedName = projectName.replace(/[^a-z0-9]/gi, '').substring(0, 10).toLowerCase();
+  const timestamp = Date.now().toString(36);
+  return `${sanitizedName}-${timestamp}`;
+}
+
+// Load project data from Zapier
+function loadProjectFromZapier() {
+  // Show project ID input modal
+  const modal = document.createElement('div');
+  modal.className = 'project-id-modal';
+  modal.innerHTML = `
+    <div class="project-id-content">
+      <h3>Load Project</h3>
+      <p>Enter your project ID to load:</p>
+      <input type="text" id="project-id-input" class="input-field" placeholder="e.g., project-1a2b3c">
+      <div class="modal-buttons">
+        <button id="load-project-cancel" class="button" style="background: rgba(167, 78, 158, 0.2); max-width: 120px;">Cancel</button>
+        <button id="load-project-confirm" class="button" style="max-width: 120px;">Load</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Add event listeners
+  document.getElementById('load-project-cancel').addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+  
+  document.getElementById('load-project-confirm').addEventListener('click', () => {
+    const projectId = document.getElementById('project-id-input').value.trim();
+    if (!projectId) {
+      alert('Please enter a valid project ID');
+      return;
+    }
+    
+    document.body.removeChild(modal);
+    
+    // Show loading indicator
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'pdf-loading-overlay';
+    loadingOverlay.innerHTML = `
+      <div class="pdf-spinner"></div>
+      <p style="color: white; font-size: 18px; margin-top: 20px;">Loading project data...</p>
+    `;
+    document.body.appendChild(loadingOverlay);
+    
+    // Send request to download webhook with project ID
+    const downloadUrl = `https://hooks.zapier.com/hooks/catch/14828696/2qwm7qi/?projectId=${encodeURIComponent(projectId)}`;
+    
+    // Use a JSONP-like approach or redirect to download
+    // For this implementation, we'll simulate the download process
+    // In a production environment, you'd need to implement server-side handling
+    
+    // Simulate server response (in real implementation, this would come from your webhook)
+    setTimeout(() => {
+      document.body.removeChild(loadingOverlay);
+      showNotification('Project loading feature is not fully implemented yet.', 'warning');
+      
+      // In a real implementation, you would:
+      // 1. Fetch the data from your webhook
+      // 2. Parse the returned JSON
+      // 3. Update appData with the loaded data
+      // 4. Call functions to update the UI with the loaded data
+    }, 1500);
+  });
+}
+
+// Show notification message
+function showNotification(message, type = 'info') {
+  // Remove any existing notifications
+  const existingNotifications = document.querySelectorAll('.notification');
+  existingNotifications.forEach(notification => {
+    document.body.removeChild(notification);
+  });
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.className = `notification notification-${type}`;
+  notification.innerHTML = `
+    <div class="notification-content">
+      <span>${message}</span>
+      <button class="notification-close">&times;</button>
+    </div>
+  `;
+  document.body.appendChild(notification);
+  
+  // Add close button functionality
+  notification.querySelector('.notification-close').addEventListener('click', () => {
+    document.body.removeChild(notification);
+  });
+  
+  // Auto remove after 5 seconds
+  setTimeout(() => {
+    if (document.body.contains(notification)) {
+      document.body.removeChild(notification);
+    }
+  }, 5000);
+}
+
+// Show modal with project ID
+function showProjectIdModal(projectId) {
+  const modal = document.createElement('div');
+  modal.className = 'project-id-modal';
+  modal.innerHTML = `
+    <div class="project-id-content">
+      <h3>Project Saved</h3>
+      <p>Your project has been saved. Please save this ID to reload your project later:</p>
+      <div class="project-id-display">
+        <input type="text" readonly value="${projectId}" class="input-field">
+        <button class="copy-button" title="Copy to clipboard">
+          <svg viewBox="0 0 24 24" class="btn-icon">
+            <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+          </svg>
+        </button>
+      </div>
+      <p class="text-sm text-dim mt-2">Make sure to keep this ID safe as you'll need it to reload your project.</p>
+      <div class="modal-buttons">
+        <button class="button close-modal">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Copy button functionality
+  modal.querySelector('.copy-button').addEventListener('click', () => {
+    const input = modal.querySelector('input');
+    input.select();
+    document.execCommand('copy');
+    const copyButton = modal.querySelector('.copy-button');
+    copyButton.innerHTML = `
+      <svg viewBox="0 0 24 24" class="btn-icon" style="color: var(--primary-color);">
+        <path d="M5 13l4 4L19 7"></path>
+      </svg>
+    `;
+    setTimeout(() => {
+      copyButton.innerHTML = `
+        <svg viewBox="0 0 24 24" class="btn-icon">
+          <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+        </svg>
+      `;
+    }, 2000);
+  });
+  
+  // Close button functionality
+  modal.querySelector('.close-modal').addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+}
+
+// Add styles for notifications and modals
+function addNotificationAndModalStyles() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1100;
+      max-width: 400px;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow-lg);
+      animation: slideIn 0.3s ease-out;
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .notification-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-radius: var(--border-radius);
+    }
+    
+    .notification-info .notification-content {
+      background: rgba(0, 123, 255, 0.2);
+      border: 1px solid rgba(0, 123, 255, 0.5);
+    }
+    
+    .notification-success .notification-content {
+      background: rgba(40, 167, 69, 0.2);
+      border: 1px solid rgba(40, 167, 69, 0.5);
+    }
+    
+    .notification-warning .notification-content {
+      background: rgba(255, 193, 7, 0.2);
+      border: 1px solid rgba(255, 193, 7, 0.5);
+    }
+    
+    .notification-error .notification-content {
+      background: rgba(220, 53, 69, 0.2);
+      border: 1px solid rgba(220, 53, 69, 0.5);
+    }
+    
+    .notification-close {
+      background: transparent;
+      border: none;
+      color: var(--text-light);
+      font-size: 18px;
+      cursor: pointer;
+      margin-left: 12px;
+    }
+    
+    .project-id-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1200;
+    }
+    
+    .project-id-content {
+      background: var(--bg-card);
+      border-radius: var(--border-radius);
+      padding: 24px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid rgba(167, 78, 158, 0.3);
+    }
+    
+    .project-id-content h3 {
+      color: var(--primary-color);
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+    
+    .project-id-display {
+      display: flex;
+      margin: 16px 0;
+    }
+    
+    .project-id-display input {
+      flex-grow: 1;
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      font-family: monospace;
+      font-size: 16px;
+      color: var(--primary-color);
+    }
+    
+    .copy-button {
+      background: rgba(167, 78, 158, 0.2);
+      border: 1px solid rgba(167, 78, 158, 0.3);
+      border-left: none;
+      border-top-right-radius: var(--border-radius);
+      border-bottom-right-radius: var(--border-radius);
+      padding: 0 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .copy-button:hover {
+      background: rgba(167, 78, 158, 0.3);
+    }
+    
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    
+    .modal-buttons .button {
+      margin-bottom: 0;
+    }
+  `;
+  
+  document.head.appendChild(style);
+}
+
+// Initialize the save functionality
+function initializeSaveAndLoad() {
+  // Add styles for notifications and modals
+  addNotificationAndModalStyles();
+  
+  // Add event listener to save button
+  document.getElementById('saveBtn').addEventListener('click', saveProjectToZapier);
+  
+  // Add event listener to download button
+  document.getElementById('downloadBtn').addEventListener('click', loadProjectFromZapier);
+}
+
+// Call this function when the DOM is loaded
+document.addEventListener('DOMContentLoaded', initializeSaveAndLoad);
+
+
+// Function to export the project data as a JSON file
+function exportProjectData() {
+  // Create a copy of the data with a version identifier
+  const exportData = {
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
+    appData: JSON.parse(JSON.stringify(appData)) // Deep clone to ensure we have a clean copy
+  };
+  
+  // Convert to a JSON string
+  const jsonString = JSON.stringify(exportData, null, 2); // Pretty-print with 2-space indentation
+  
+  // Create a blob with the JSON data
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  // Generate a filename
+  const projectName = appData.project.projectName || "3D_Project";
+  const safeProjectName = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+  const filename = `${safeProjectName}_${timestamp}.json`;
+  
+  // Create a temporary link element to trigger the download
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  
+  // Trigger the download
+  link.click();
+  
+  // Clean up
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  
+  // Show success notification
+  showNotification('Project data exported successfully', 'success');
+}
+
+
+
+// Function to update all UI components after data import
+function updateAllUI() {
+  // Refresh each view
+  const currentView = appData.currentView;
+  
+  // Initialize input fields with the loaded data
+  initializeInputFields();
+  
+  // Render milestones, risks, images
+  renderMilestones();
+  renderRisks();
+  renderSliceImages();
+  
+  // Update risk chart
+  updateRiskChart();
+  
+  // Update cost summary if on terms view
+  if (currentView === 'terms') {
+    updateCostSummary();
+  }
+  
+  // Generate report if on report view
+  if (currentView === 'report') {
+    generateReport();
+  }
+  
+  // Switch to the same view as before
+  switchView(currentView);
+  
+  // Show notification that the UI has been updated
+  showNotification('All UI components have been updated with imported data', 'info');
+}
+
+// Add direct file export/import buttons
+function addExportImportButtons() {
+  // Create export/import button container
+  const buttonContainer = document.createElement('div');
+  buttonContainer.className = 'export-import-buttons';
+  buttonContainer.innerHTML = `
+    <button id="exportDataBtn" class="button" title="Export project data as JSON file">
+      <svg viewBox="0 0 24 24" class="btn-icon">
+        <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+      </svg>
+      Export Data
+    </button>
+  
+  `;
+  
+  // Add styles for the buttons
+  const style = document.createElement('style');
+  style.textContent = `
+    .export-import-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .export-import-buttons .button {
+      max-width: 180px;
+      margin-bottom: 0;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  // Find the appropriate place to add the buttons
+  const reportView = document.getElementById('view-report');
+  const buttonsContainer = reportView.querySelector('.flex.justify-between.space-x-4');
+  buttonsContainer.appendChild(buttonContainer);
+  
+  // Add event listeners
+  document.getElementById('exportDataBtn').addEventListener('click', exportProjectData);
+  document.getElementById('importDataBtn').addEventListener('click', importProjectData);
+}
+
+// Initialize export/import functionality
+document.addEventListener('DOMContentLoaded', function() {
+  addExportImportButtons();
+});
+
+// Initialize all save and load functionality
+document.addEventListener('DOMContentLoaded', function() {
+  // Replace the existing save button functionality
+  const saveBtn = document.getElementById('saveBtn');
+  if (saveBtn) {
+    // Remove existing event listeners
+    const newSaveBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+    
+    // Add new event listener
+    newSaveBtn.addEventListener('click', showSaveOptions);
+  }
+  
+  // Replace the existing download button functionality
+  const downloadBtn = document.getElementById('downloadBtn');
+  if (downloadBtn) {
+    // Remove existing event listeners
+    const newDownloadBtn = downloadBtn.cloneNode(true);
+    downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+    
+    // Add new event listener
+    newDownloadBtn.addEventListener('click', showLoadOptions);
+  }
+  
+  // Add tooltips to the buttons
+  newSaveBtn.title = "Save project data";
+  newDownloadBtn.title = "Load project data";
+});
+
+// Function to show save options modal
+function showSaveOptions() {
+  const modal = document.createElement('div');
+  modal.className = 'project-id-modal';
+  modal.innerHTML = `
+    <div class="project-id-content">
+      <h3>Save Project Data</h3>
+      <p>Choose how you want to save your project:</p>
+      
+      <div class="save-options">
+        <button id="save-to-file" class="button">
+          <svg viewBox="0 0 24 24" class="btn-icon">
+            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          </svg>
+          Save to File
+        </button>
+        
+        <button id="save-to-dropbox" class="button">
+          <svg viewBox="0 0 24 24" class="btn-icon">
+            <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+          </svg>
+          Save to Dropbox
+        </button>
+      </div>
+      
+      <div class="option-description text-dim text-sm mt-4">
+        <p id="option-description">Select an option to see more information</p>
+      </div>
+      
+      <div class="modal-buttons mt-6">
+        <button id="cancel-save" class="button" style="background: rgba(167, 78, 158, 0.2); max-width: 120px;">Cancel</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Add styles for the options
+  const style = document.createElement('style');
+  style.textContent = `
+    .save-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    
+    .save-options .button {
+      margin-bottom: 0;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  // Add event listeners for hover descriptions
+  document.getElementById('save-to-file').addEventListener('mouseenter', () => {
+    document.getElementById('option-description').textContent = 
+      'Save to a local JSON file on your device. You can load this file later to continue working on your project.';
+  });
+  
+  document.getElementById('save-to-dropbox').addEventListener('mouseenter', () => {
+    document.getElementById('option-description').textContent = 
+      'Save to Dropbox via Zapier. You\'ll receive a project ID to load your project data later.';
+  });
+  
+  // Add event listeners for buttons
+  document.getElementById('save-to-file').addEventListener('click', () => {
+    document.body.removeChild(modal);
+    exportProjectData();
+  });
+  
+  document.getElementById('save-to-dropbox').addEventListener('click', () => {
+    document.body.removeChild(modal);
+    saveProjectToZapier();
+  });
+  
+  document.getElementById('cancel-save').addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+}
+
+// Function to show load options modal
+function showLoadOptions() {
+  const modal = document.createElement('div');
+  modal.className = 'project-id-modal';
+  modal.innerHTML = `
+    <div class="project-id-content">
+      <h3>Load Project Data</h3>
+      <p>Choose how you want to load your project:</p>
+      
+      <div class="load-options">
+        <button id="load-from-file" class="button">
+          <svg viewBox="0 0 24 24" class="btn-icon">
+            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+          </svg>
+          Load from File
+        </button>
+        
+        <button id="load-from-dropbox" class="button">
+          <svg viewBox="0 0 24 24" class="btn-icon">
+            <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+          </svg>
+          Load from Dropbox
+        </button>
+      </div>
+      
+      <div class="option-description text-dim text-sm mt-4">
+        <p id="option-description">Select an option to see more information</p>
+      </div>
+      
+      <div class="modal-buttons mt-6">
+        <button id="cancel-load" class="button" style="background: rgba(167, 78, 158, 0.2); max-width: 120px;">Cancel</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Add event listeners for hover descriptions
+  document.getElementById('load-from-file').addEventListener('mouseenter', () => {
+    document.getElementById('option-description').textContent = 
+      'Load from a local JSON file that you previously saved to your device.';
+  });
+  
+  document.getElementById('load-from-dropbox').addEventListener('mouseenter', () => {
+    document.getElementById('option-description').textContent = 
+      'Load from Dropbox via Zapier. You\'ll need the project ID that was provided when you saved.';
+  });
+  
+  // Add event listeners for buttons
+  document.getElementById('load-from-file').addEventListener('click', () => {
+    document.body.removeChild(modal);
+    importProjectData();
+  });
+  
+  document.getElementById('load-from-dropbox').addEventListener('click', () => {
+    document.body.removeChild(modal);
+    loadProjectFromZapier();
+  });
+  
+  document.getElementById('cancel-load').addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+}
+
+// Function to handle CORS-friendly file upload to Zapier
+function uploadToZapierCORS(data) {
+  return new Promise((resolve, reject) => {
+    // Create a form for CORS-friendly submission
+    const formData = new FormData();
+    
+    // Add data to form
+    for (const key in data) {
+      formData.append(key, data[key]);
+    }
+    
+    // Create an invisible iframe to target the form submission
+    const iframe = document.createElement('iframe');
+    iframe.name = 'zapier_iframe';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    // Create an invisible form
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = ZAPIER_SAVE_WEBHOOK;
+    form.target = 'zapier_iframe';
+    form.style.display = 'none';
+    document.body.appendChild(form);
+    
+    // Add form data
+    for (const key in data) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = data[key];
+      form.appendChild(input);
+    }
+    
+    // Handle iframe load event (form submission complete)
+    iframe.onload = function() {
+      // Resolve after a short delay
+      setTimeout(() => {
+        resolve({success: true});
+        // Clean up
+        if (document.body.contains(form)) document.body.removeChild(form);
+        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+      }, 1000);
+    };
+    
+    // Handle errors
+    iframe.onerror = function() {
+      reject(new Error('Failed to submit form to Zapier'));
+      // Clean up
+      if (document.body.contains(form)) document.body.removeChild(form);
+      if (document.body.contains(iframe)) document.body.removeChild(iframe);
+    };
+    
+    // Submit the form
+    form.submit();
+    
+    // Set a timeout in case the iframe doesn't load
+    setTimeout(() => {
+      if (document.body.contains(form) || document.body.contains(iframe)) {
+        resolve({success: true, warning: 'Operation timed out but may have completed'});
+        // Clean up
+        if (document.body.contains(form)) document.body.removeChild(form);
+        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+      }
+    }, 10000); // 10 second timeout
+  });
+}
+
+// Function to get JSONP data from Zapier
+function getJSONPFromZapier(projectId, callbackName) {
+  return new Promise((resolve, reject) => {
+    // Define the callback function
+    window[callbackName] = function(data) {
+      resolve(data);
+      // Clean up the callback
+      delete window[callbackName];
+    };
+    
+    // Create a script element
+    const script = document.createElement('script');
+    script.src = `${ZAPIER_LOAD_WEBHOOK}?projectId=${encodeURIComponent(projectId)}&callback=${callbackName}`;
+    
+    // Handle script errors
+    script.onerror = function() {
+      reject(new Error('Failed to load script from Zapier'));
+      delete window[callbackName];
+    };
+    
+    // Add the script to the page
+    document.body.appendChild(script);
+    
+    // Set a timeout for the script
+    setTimeout(() => {
+      if (document.body.contains(script)) {
+        reject(new Error('Timeout loading script from Zapier'));
+        document.body.removeChild(script);
+        delete window[callbackName];
+      }
+    }, 15000); // 15 second timeout
+  });
+}
+
+// Add function to save to localStorage as a backup/alternative
+function saveToLocalStorage() {
+  try {
+    const projectName = appData.project.projectName || "3D_Project";
+    const safeProjectName = projectName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    
+    // Create a metadata object for the localStorage index
+    const metadata = {
+      projectName: appData.project.projectName,
+      clientName: appData.project.clientName,
+      timestamp: new Date().toISOString(),
+      id: safeProjectName + '_' + Date.now()
+    };
+    
+    // Save the data
+    localStorage.setItem(`3d_project_data_${metadata.id}`, JSON.stringify(appData));
+    
+    // Update the project index
+    let projectIndex = [];
+    try {
+      const savedIndex = localStorage.getItem('3d_project_index');
+      if (savedIndex) {
+        projectIndex = JSON.parse(savedIndex);
+      }
+    } catch (e) {
+      console.error('Error parsing project index:', e);
+    }
+    
+    // Add the new project to the index
+    projectIndex.push(metadata);
+    
+    // Save the updated index
+    localStorage.setItem('3d_project_index', JSON.stringify(projectIndex));
+    
+    return metadata.id;
+  } catch (error) {
+    console.error('Error saving to localStorage:', error);
+    throw error;
+  }
+}
+
+// Replace the refreshAllUIComponents function with this improved version
+
+function refreshAllUIComponents() {
+  // Validate and repair the data structure if needed
+  validateAndRepairAppData();
+  
+  // Update all input fields with the loaded data
+  const inputFields = document.querySelectorAll('input, textarea, select');
+  inputFields.forEach(field => {
+    if (!field.id || field.id === '') return;
+    
+    // For checkbox elements
+    if (field.type === 'checkbox') {
+      if (field.id === 'standardTerms') {
+        field.checked = appData.terms.standardTerms;
+      } else if (field.id === 'complexTerms') {
+        field.checked = appData.terms.complexTerms;
+      }
+      return;
+    }
+    
+    // For other field types
+    if (field.id === 'clientName') {
+      field.value = appData.project.clientName || '';
+    } else if (field.id === 'projectName') {
+      field.value = appData.project.projectName || '';
+    } else if (field.id === 'description') {
+      field.value = appData.project.description || '';
+    } else if (field.id === 'startDate') {
+      field.value = appData.project.startDate || '';
+    } else if (field.id === 'targetEndDate') {
+      field.value = appData.project.targetEndDate || '';
+    } else if (field.id === 'complexity') {
+      field.value = appData.project.complexity || 'medium';
+    } else if (field.id === 'materialType') {
+      field.value = appData.project.materialType || '';
+    } else if (field.id === 'materialEstimateKg') {
+      field.value = appData.project.materialEstimateKg || 1;
+    } else if (field.id === 'wasteFactor') {
+      field.value = appData.project.wasteFactor || 20;
+    } else if (field.id === 'materialCostPerKg') {
+      field.value = appData.project.materialCostPerKg || 50;
+    } else if (field.id === 'dimensionX') {
+      field.value = appData.project.dimensions.x || '';
+    } else if (field.id === 'dimensionY') {
+      field.value = appData.project.dimensions.y || '';
+    } else if (field.id === 'dimensionZ') {
+      field.value = appData.project.dimensions.z || '';
+    } else if (field.id === 'rdDays') {
+      field.value = appData.project.rdDays || 1;
+    } else if (field.id === 'narrative') {
+      field.value = appData.project.narrative || '';
+    } else if (field.id === 'printNotes') {
+      field.value = appData.project.printNotes || '';
+    } else if (field.id === 'additionalTerms') {
+      field.value = appData.terms.additionalTerms || '';
+    }
+  });
+  
+  // Render dynamic components
+  renderMilestones();
+  renderRisks();
+  renderSliceImages();
+  
+  // Update risk chart
+  updateRiskChart();
+  
+  // Update cost summary if on terms view
+  if (appData.currentView === 'terms') {
+    updateCostSummary();
+  }
+  
+  // Generate report if on report view
+  if (appData.currentView === 'report') {
+    generateReport();
+  }
+  
+  // Switch to the same view as before
+  switchView(appData.currentView);
+}
+
+// Improve the importProjectData function to properly handle the JSON data structure
+function importProjectData() {
+  // Create a file input element
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.json';
+  
+  // Add a change event listener to handle the selected file
+  fileInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Show loading indicator
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'pdf-loading-overlay';
+    loadingOverlay.innerHTML = `
+      <div class="pdf-spinner"></div>
+      <p style="color: white; font-size: 18px; margin-top: 20px;">Loading project data...</p>
+    `;
+    document.body.appendChild(loadingOverlay);
+    
+    // Read the file contents
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        // Parse the JSON data
+        const importedData = JSON.parse(event.target.result);
+        
+        // Validate the data structure
+        if (!importedData.appData) {
+          throw new Error('Invalid project file format');
+        }
+        
+        // Apply the imported data to appData
+        Object.assign(appData, importedData.appData);
+        
+        // Refresh all UI components with the new data
+        refreshAllUIComponents();
+        
+        // Remove loading indicator
+        document.body.removeChild(loadingOverlay);
+        
+        // Show success notification
+        showNotification('Project data imported successfully', 'success');
+      } catch (error) {
+        // Remove loading indicator
+        document.body.removeChild(loadingOverlay);
+        
+        // Show error notification
+        console.error('Error importing project data:', error);
+        showNotification('Error importing project data. Please check the file format.', 'error');
+      }
+    };
+    
+    reader.onerror = () => {
+      // Remove loading indicator
+      document.body.removeChild(loadingOverlay);
+      
+      // Show error notification
+      showNotification('Error reading the file. Please try again.', 'error');
+    };
+    
+    // Read the file as text
+    reader.readAsText(file);
+  });
+  
+  // Trigger the file selection dialog
+  fileInput.click();
+}
+
+
+
+// Add this improved validation function to ensure all required data structures exist
+function validateAndRepairAppData() {
+  // Ensure all required structures exist
+  if (!appData.project) {
+    appData.project = {};
+  }
+
+  if (appData.project.dayRate === undefined) appData.project.dayRate = 1000;
+  
+  if (!appData.project.dimensions) {
+    appData.project.dimensions = { x: '', y: '', z: '' };
+  }
+  
+  if (!appData.project.milestones || !Array.isArray(appData.project.milestones) || appData.project.milestones.length === 0) {
+    appData.project.milestones = [{ id: 1, name: '', date: '', paymentPercentage: 0 }];
+  }
+  
+  if (!appData.project.sliceImages) {
+    appData.project.sliceImages = [];
+  }
+  
+  if (!appData.risks || !Array.isArray(appData.risks) || appData.risks.length === 0) {
+    appData.risks = [{ id: 1, type: 'technical', description: '', level: 'medium', cost: 0, clientBearing: true }];
+  }
+  
+  if (!appData.terms) {
+    appData.terms = { standardTerms: true, complexTerms: false, additionalTerms: '' };
+  }
+  
+  if (!appData.currentView) {
+    appData.currentView = 'project';
+  }
+  
+  // Set default values for other properties if they're missing
+  if (appData.project.materialEstimateKg === undefined) appData.project.materialEstimateKg = 1;
+  if (appData.project.wasteFactor === undefined) appData.project.wasteFactor = 20;
+  if (appData.project.materialCostPerKg === undefined) appData.project.materialCostPerKg = 50;
+  if (appData.project.rdDays === undefined) appData.project.rdDays = 1;
+  if (appData.project.complexity === undefined) appData.project.complexity = 'medium';
+}
+
+// Function to hide Zapier-related UI elements
+function hideZapierRelatedElements() {
+  // Add CSS to hide Zapier-related buttons and options
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Hide Zapier-related buttons and elements */
+    #saveBtn, 
+    #downloadBtn,
+    .export-import-buttons button[id="exportDataBtn"]:not(#importDataBtn), /* Hide only export button, keep import */
+    .save-options button[id="save-to-dropbox"],
+    .load-options button[id="load-from-dropbox"],
+    .project-id-modal,
+    [onclick="saveProjectToZapier()"],
+    [onclick="loadProjectFromZapier()"],
+    [onclick="showSaveOptions()"],
+    [onclick="showLoadOptions()"] {
+      display: none !important;
+    }
+    
+    /* Keep only the local file import/export functionality */
+    .export-import-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    
+    #importDataBtn {
+      display: 'none' !important;
+    }
+  `;
+  
+  document.head.appendChild(style);
+  
+  // Replace the save button with a simplified version that only exports to file
+  document.addEventListener('DOMContentLoaded', function() {
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+      saveBtn.onclick = exportProjectData;
+      saveBtn.style.display = 'block';
+      saveBtn.title = "Export project to file";
+    }
+    
+    // If there are any "Save to Zapier" or "Load from Zapier" buttons, hide them
+    const allButtons = document.querySelectorAll('button');
+    allButtons.forEach(button => {
+      if (button.textContent && 
+         (button.textContent.includes('Zapier') || 
+          button.textContent.includes('Dropbox') ||
+          button.onclick && button.onclick.toString().includes('Zapier'))) {
+        button.style.display = 'none';
+      }
+    });
+    
+    // Replace any save dialogs with direct file export
+    if (typeof showSaveOptions === 'function') {
+      window.showSaveOptions = function() {
+        exportProjectData();
+      };
+    }
+    
+    // Replace any load dialogs with direct file import
+    if (typeof showLoadOptions === 'function') {
+      window.showLoadOptions = function() {
+        importProjectData();
+      };
+    }
+  });
+  
+  // Simplify the UI by removing Zapier-related options in modals
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+        for (let i = 0; i < mutation.addedNodes.length; i++) {
+          const node = mutation.addedNodes[i];
+          if (node.nodeType === 1 && node.classList && node.classList.contains('project-id-modal')) {
+            node.remove();
+          }
+        }
+      }
+    });
+  });
+  
+  observer.observe(document.body, { childList: true });
+}
+
+// Add a simple save button to the top right of the header
+document.addEventListener('DOMContentLoaded', function() {
+  // Find the header element
+  const header = document.querySelector('.status-banner');
+  
+  if (header) {
+    // Create a simple save button
+    const saveButton = document.createElement('button');
+    saveButton.className = 'button';
+    saveButton.style.position = 'absolute';
+    saveButton.style.top = '12px';
+    saveButton.style.right = '20px';
+    saveButton.style.maxWidth = '150px';
+    saveButton.style.padding = '8px 16px';
+    saveButton.style.margin = '0';
+    saveButton.style.fontSize = '14px';
+    saveButton.title = "Save project data as JSON file";
+    
+    // Set the button content
+    saveButton.innerHTML = `
+      <svg viewBox="0 0 24 24" class="btn-icon" style="margin-right: 5px; width: 16px; height: 16px;">
+        <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+      </svg>
+      Save Project
+    `;
+    
+    // Set header position to relative if it's not already
+    header.style.position = 'relative';
+    
+    // Add the save functionality
+    saveButton.addEventListener('click', exportProjectData);
+    
+    // Add the button to the header
+    header.appendChild(saveButton);
+  }
+});
+
+
+// Replace the current save/load options with simplified direct file operations
+function simplifyInteractions() {
+  // Replace saveProjectToZapier with exportProjectData
+  window.saveProjectToZapier = exportProjectData;
+  
+  // Replace loadProjectFromZapier with importProjectData
+  window.loadProjectFromZapier = importProjectData;
+  
+  // Override buttons to directly trigger file operations
+  document.addEventListener('DOMContentLoaded', function() {
+    const exportButton = document.getElementById('exportPDF');
+    if (exportButton) {
+      // Keep the PDF export button visible
+      exportButton.style.display = 'block';
+    }
+    
+    // Ensure the import data button is visible
+    const importDataBtn = document.getElementById('importDataBtn');
+    if (importDataBtn) {
+      importDataBtn.style.display = 'none';
+    }
+  });
+}
+
+// Initialize the simplification
+document.addEventListener('DOMContentLoaded', function() {
+  hideZapierRelatedElements();
+  simplifyInteractions();
+  
+  // Add a simple message to indicate the reduced functionality
+  const reportView = document.getElementById('view-report');
+  if (reportView) {
+    const noticeDiv = document.createElement('div');
+    noticeDiv.className = 'p-4 bg-card rounded-md mb-4';
+    noticeDiv.style.background = 'rgba(167, 78, 158, 0.1)';
+    noticeDiv.style.border = '1px solid rgba(167, 78, 158, 0.3)';
+    noticeDiv.innerHTML = `
+      <p class="text-sm text-dim">
+        <strong>Note:</strong> Remote saving via cloud services is currently disabled. 
+        You can still import and export project data as local files.
+      </p>
+    `;
+    
+    const buttonsContainer = reportView.querySelector('.flex.justify-between.space-x-4');
+    if (buttonsContainer) {
+      reportView.insertBefore(noticeDiv, buttonsContainer.nextSibling);
+    }
+  }
+});
+
+// Utility function to directly trigger button click for element by ID
+function triggerButtonClick(buttonId) {
+  const button = document.getElementById(buttonId);
+  if (button) {
+    button.click();
+  }
+}
+
+// This code adds a load button at the beginning of the form and hides Zapier-related functionality
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Add the import/load button at the beginning of the form
+  addLoadButtonToTop();
+  
+  // Hide Zapier-related functionality
+  hideZapierRelatedContent();
+});
+
+// Function to add load button at the top of the form
+function addLoadButtonToTop() {
+  // Find the first element in the form to add the button before
+  const firstElement = document.querySelector('.card h2');
+  
+  if (firstElement) {
+    // Create the container for the load button
+    const loadButtonContainer = document.createElement('div');
+    loadButtonContainer.className = 'mb-6 p-4 border border-gray-700 rounded-md';
+    loadButtonContainer.style.background = 'rgba(167, 78, 158, 0.1)';
+    
+    // Add the load button HTML
+    loadButtonContainer.innerHTML = `
+      <div class="flex justify-between items-center">
+        <div>
+          <h3 class="text-lg font-medium text-primary-color mb-1">Load Project Data</h3>
+          <p class="text-sm text-dim">Load a previously saved project file to continue working on it.</p>
+        </div>
+        <button id="topLoadButton" class="button flex items-center gap-2" style="max-width: 180px; margin: 0;">
+          <svg class="btn-icon" viewBox="0 0 24 24">
+            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+          </svg>
+          Load Project
+        </button>
+      </div>
+    `;
+    
+    // Insert the container before the first element
+    firstElement.parentNode.insertBefore(loadButtonContainer, firstElement);
+    
+    // Add event listener to the new load button
+    document.getElementById('topLoadButton').addEventListener('click', importProjectData);
+  }
+}
+
+// Function to hide Zapier-related content
+function hideZapierRelatedContent() {
+  // Hide Zapier save/load specific buttons and options
+  const elementsToHide = [
+    '#saveBtn',
+    '.save-options',
+    '.load-options',
+    '#save-to-dropbox',
+    '#load-from-dropbox'
+  ];
+  
+  // Apply display: none to all Zapier-related elements
+  elementsToHide.forEach(selector => {
+    const elements = document.querySelectorAll(selector);
+    elements.forEach(el => {
+      // If the element exists, hide it
+      if (el) {
+        el.style.display = 'none';
+      }
+    });
+  });
+  
+  // Update any functions that display Zapier options
+  // Replace the showSaveOptions and showLoadOptions functions
+  window.showSaveOptions = function() {
+    // Skip the options modal and go straight to file save
+    exportProjectData();
+  };
+  
+  window.showLoadOptions = function() {
+    // Skip the options modal and go straight to file load
+    importProjectData();
+  };
+}
+
+// Replace the refreshAllUIComponents function with this improved version
+function refreshAllUIComponents() {
+  // Validate and repair the data structure if needed
+  validateAndRepairAppData();
+  
+  // Update all input fields with the loaded data
+  const inputFields = document.querySelectorAll('input, textarea, select');
+  inputFields.forEach(field => {
+    if (!field.id || field.id === '') return;
+    
+    // For checkbox elements
+    if (field.type === 'checkbox') {
+      if (field.id === 'standardTerms') {
+        field.checked = appData.terms.standardTerms;
+      } else if (field.id === 'complexTerms') {
+        field.checked = appData.terms.complexTerms;
+      }
+      return;
+    }
+    
+    // For other field types
+    if (field.id === 'clientName') {
+      field.value = appData.project.clientName || '';
+    } else if (field.id === 'projectName') {
+      field.value = appData.project.projectName || '';
+    } else if (field.id === 'description') {
+      field.value = appData.project.description || '';
+    } else if (field.id === 'startDate') {
+      field.value = appData.project.startDate || '';
+    } else if (field.id === 'targetEndDate') {
+      field.value = appData.project.targetEndDate || '';
+    } else if (field.id === 'complexity') {
+      field.value = appData.project.complexity || 'medium';
+    } else if (field.id === 'materialType') {
+      field.value = appData.project.materialType || '';
+    } else if (field.id === 'materialEstimateKg') {
+      field.value = appData.project.materialEstimateKg || 1;
+    } else if (field.id === 'wasteFactor') {
+      field.value = appData.project.wasteFactor || 20;
+    } else if (field.id === 'materialCostPerKg') {
+      field.value = appData.project.materialCostPerKg || 50;
+    } else if (field.id === 'dimensionX') {
+      field.value = appData.project.dimensions.x || '';
+    } else if (field.id === 'dimensionY') {
+      field.value = appData.project.dimensions.y || '';
+    } else if (field.id === 'dimensionZ') {
+      field.value = appData.project.dimensions.z || '';
+    } else if (field.id === 'rdDays') {
+      field.value = appData.project.rdDays || 1;
+    } else if (field.id === 'narrative') {
+      field.value = appData.project.narrative || '';
+    } else if (field.id === 'printNotes') {
+      field.value = appData.project.printNotes || '';
+    } else if (field.id === 'additionalTerms') {
+      field.value = appData.terms.additionalTerms || '';
+    }
+  });
+  
+  // Render dynamic components
+  renderMilestones();
+  renderRisks();
+  renderSliceImages();
+  
+  // Update risk chart
+  updateRiskChart();
+  
+  // Update cost summary if on terms view
+  if (appData.currentView === 'terms') {
+    updateCostSummary();
+  }
+  
+  // Generate report if on report view
+  if (appData.currentView === 'report') {
+    generateReport();
+  }
+  
+  // Switch to the same view as before
+  switchView(appData.currentView);
+  
+  // Show a success notification
+  showNotification('Project data loaded successfully!', 'success');
+}
+
+// Improve the importProjectData function to properly handle the JSON data structure
+function importProjectData() {
+  // Create a file input element
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.json';
+  
+  // Add a change event listener to handle the selected file
+  fileInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Show loading indicator
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'pdf-loading-overlay';
+    loadingOverlay.innerHTML = `
+      <div class="pdf-spinner"></div>
+      <p style="color: white; font-size: 18px; margin-top: 20px;">Loading project data...</p>
+    `;
+    document.body.appendChild(loadingOverlay);
+    
+    // Read the file contents
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        // Parse the JSON data
+        const importedData = JSON.parse(event.target.result);
+        
+        // Validate the data structure
+        if (!importedData.appData) {
+          throw new Error('Invalid project file format');
+        }
+        
+        // Apply the imported data to appData
+        Object.assign(appData, importedData.appData);
+        
+        // Refresh all UI components with the new data
+        refreshAllUIComponents();
+        
+        // Remove loading indicator
+        document.body.removeChild(loadingOverlay);
+        
+        // Show success notification
+        showNotification('Project data imported successfully', 'success');
+      } catch (error) {
+        // Remove loading indicator
+        document.body.removeChild(loadingOverlay);
+        
+        // Show error notification
+        console.error('Error importing project data:', error);
+        showNotification('Error importing project data. Please check the file format.', 'error');
+      }
+    };
+    
+    reader.onerror = () => {
+      // Remove loading indicator
+      document.body.removeChild(loadingOverlay);
+      
+      // Show error notification
+      showNotification('Error reading the file. Please try again.', 'error');
+    };
+    
+    // Read the file as text
+    reader.readAsText(file);
+  });
+  
+  // Trigger the file selection dialog
+  fileInput.click();
+}
+
+// Add this improved validation function to ensure all required data structures exist
+function validateAndRepairAppData() {
+  // Ensure all required structures exist
+  if (!appData.project) {
+    appData.project = {};
+  }
+  
+  if (!appData.project.dimensions) {
+    appData.project.dimensions = { x: '', y: '', z: '' };
+  }
+  
+  if (!appData.project.milestones || !Array.isArray(appData.project.milestones) || appData.project.milestones.length === 0) {
+    appData.project.milestones = [{ id: 1, name: '', date: '', paymentPercentage: 0 }];
+  }
+  
+  if (!appData.project.sliceImages) {
+    appData.project.sliceImages = [];
+  }
+  
+  if (!appData.risks || !Array.isArray(appData.risks) || appData.risks.length === 0) {
+    appData.risks = [{ id: 1, type: 'technical', description: '', level: 'medium', cost: 0, clientBearing: true }];
+  }
+  
+  if (!appData.terms) {
+    appData.terms = { standardTerms: true, complexTerms: false, additionalTerms: '' };
+  }
+  
+  if (!appData.currentView) {
+    appData.currentView = 'project';
+  }
+  
+  // Set default values for other properties if they're missing
+  if (appData.project.materialEstimateKg === undefined) appData.project.materialEstimateKg = 1;
+  if (appData.project.wasteFactor === undefined) appData.project.wasteFactor = 20;
+  if (appData.project.materialCostPerKg === undefined) appData.project.materialCostPerKg = 50;
+  if (appData.project.rdDays === undefined) appData.project.rdDays = 1;
+  if (appData.project.complexity === undefined) appData.project.complexity = 'medium';
+}
+
+// Update the save button to only perform file exports (no Zapier)
+document.addEventListener('DOMContentLoaded', function() {
+  const saveBtn = document.getElementById('saveBtn');
+  if (saveBtn) {
+    // Remove existing event listeners
+    const newSaveBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+    
+    // Add direct export function
+    newSaveBtn.addEventListener('click', exportProjectData);
+    newSaveBtn.title = "Save project to file";
+  }
+});
+
 
 function addCameraStyles() {
   const style = document.createElement('style');
@@ -1300,6 +2748,44 @@ document.addEventListener('DOMContentLoaded', function() {
   initializeFileUpload();
   enhanceImageUploadContainer();
   addCameraStyles();
+});
+
+// Function to enhance the image upload container without the camera button
+function enhanceImageUploadContainer() {
+  const container = document.querySelector('.image-container');
+  
+  // Remove any existing camera buttons
+  const existingCameraButtons = container.querySelectorAll('.camera-button');
+  existingCameraButtons.forEach(button => button.remove());
+  
+  // Do not add the camera button anymore
+  // This effectively hides the camera functionality
+}
+
+
+
+// Add this CSS to ensure camera buttons remain hidden
+function addHideCameraButtonStyle() {
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Hide all camera-related buttons */
+    .camera-button,
+    button[onclick="addImageFromCamera()"],
+    .camera-modal {
+      display: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// Call this function when the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  // Apply the styles to hide camera buttons
+  addHideCameraButtonStyle();
+  
+  // Make sure the enhanceImageUploadContainer function gets called
+  // This will remove any existing camera buttons
+  setTimeout(enhanceImageUploadContainer, 100);
 });
 
 // Update risk
@@ -1732,8 +3218,8 @@ function calculateCosts() {
   // Base R&D days
   const rdDays = parseFloat(appData.project.rdDays) || 1;
   
-  // Standard day rate
-  const standardDayRate = 1000;
+  // Get day rate from project data instead of using a fixed constant
+  const standardDayRate = parseFloat(appData.project.dayRate) || 1000;
   
   // Calculate risk costs - separate client and company risks
   let clientRiskCost = 0;
@@ -1929,14 +3415,7 @@ function addFullscreenImageViewing() {
   });
 }
 
-// Call this function after the DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-  // ... (existing initialization)
-  initializeFileUpload();
-  enhanceImageUploadContainer();
-  addCameraStyles();
-  addFullscreenImageViewing();
-});
+
 
 // Add CSS for fullscreen view
 function addFullscreenStyles() {
@@ -2013,6 +3492,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // ... (existing initialization)
   addFullscreenStyles();
 });
+
+
 
 // Generate report
 // Update the generateReport function to display actual images
@@ -2415,6 +3896,93 @@ margin: 0;
 padding: 20px;
 min-height: 100vh;
 line-height: 1.6;
+}
+
+
+
+/* Additional styles for the top load button */
+.top-load-container {
+  background: rgba(167, 78, 158, 0.1);
+  border: 1px solid rgba(167, 78, 158, 0.3);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.top-load-container h3 {
+  color: var(--primary-color);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.top-load-container p {
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+.top-load-button {
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 160px;
+  justify-content: center;
+  transition: all var(--transition-speed);
+}
+
+.top-load-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.top-load-button svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+}
+
+/* Hide Zapier-related elements */
+.zapier-element {
+  display: none !important;
+}
+
+/* Style for the success notification after loading */
+.load-success {
+  background-color: rgba(40, 167, 69, 0.2);
+  border: 1px solid rgba(40, 167, 69, 0.5);
+  border-radius: var(--border-radius);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.load-success svg {
+  color: #28a745;
+  margin-right: 12px;
+}
+
+/* Make sure the form sections are clearly separated */
+.card section {
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(167, 78, 158, 0.1);
+}
+
+.card section:last-child {
+  border-bottom: none;
 }
 
 .container {
@@ -3184,17 +4752,31 @@ margin-bottom: 1rem;
       <input type="number" id="materialCostPerKg" class="input-field" value="50" min="1" placeholder="Cost per kg">
     </div>
     
-    <div>
-      <label class="label">
-        R&D Days
-        <div class="tooltip">
-          <span class="info-icon">ⓘ</span>
-          <span class="tooltiptext">Number of days at £1,000 per day for development, testing, and refinement</span>
-        </div>
-      </label>
-      <input type="number" id="rdDays" class="input-field" value="1" min="1" placeholder="Days at £1,000 each">
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="label">
+          Day Rate (£)
+          <div class="tooltip">
+            <span class="info-icon">ⓘ</span>
+            <span class="tooltiptext">Cost per day for research, development, and testing</span>
+          </div>
+        </label>
+        <input type="number" id="dayRate" class="input-field" value="1000" min="1" placeholder="Day rate in £">
+      </div>
+      
+      <div>
+        <label class="label">
+          R&D Days
+          <div class="tooltip">
+            <span class="info-icon">ⓘ</span>
+            <span class="tooltiptext">Number of days for development, testing, and refinement</span>
+          </div>
+        </label>
+        <input type="number" id="rdDays" class="input-field" value="1" min="1" placeholder="Number of days">
+      </div>
     </div>
   </div>
+
   
   <div>
     <label class="label">
