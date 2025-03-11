@@ -1129,6 +1129,9 @@ document.addEventListener('DOMContentLoaded', fixPdfExportButton);
 // This is used when generating the client report
 // Function to create the risk matrix in the report
 
+// Modified version of the generateReport function
+// This focuses only on updating the pricing section to be simpler for clients
+
 function generateReport() {
   const costs = calculateCosts();
   const container = document.getElementById('reportContent');
@@ -1251,45 +1254,26 @@ function generateReport() {
       </div>
     </div>
   `;
-  
-  // Modified project pricing section - SIMPLIFIED to hide company risk details
-  // This is the key change the user requested
-  let rdCostDisplay = '';
-  
-  // Simplified display that doesn't show the company risk calculation breakdown
-  rdCostDisplay = `
-    <div class="flex justify-between">
-      <span>R&D Cost (${costs.rdDays} days @ £${Math.round(costs.adjustedDayRate).toLocaleString()}/day):</span>
-      <span>£${costs.rdCost.toLocaleString()}</span>
-    </div>
-  `;
 
-  // Insert pricing section (modified to hide company risk details)
+  // MODIFIED SECTION: Simplified Project Pricing for clients
   container.innerHTML += `
     <!-- Project Pricing -->
     <div class="mt-8">
       <h2 class="text-xl font-bold border-b border-gray-700 pb-2 text-primary-color">Project Pricing</h2>
       <div class="mt-4 space-y-2">
-        ${rdCostDisplay}
-        
         <div class="flex justify-between">
-          <span>Base Material Estimate: ${costs.weightKg.toFixed(2)} kg @ £${appData.project.materialCostPerKg}/kg</span>
-          <span>£${(costs.weightKg * appData.project.materialCostPerKg).toLocaleString()}</span>
+          <span>R&D Cost (${costs.rdDays} days @ £${Math.round(costs.adjustedDayRate).toLocaleString()}/day):</span>
+          <span>£${costs.rdCost.toLocaleString()}</span>
         </div>
         
-        <div class="flex justify-between text-sm text-dim">
-          <span>With ${appData.project.wasteFactor}% waste factor: ${costs.totalWeightKg.toFixed(2)} kg total</span>
+        <div class="flex justify-between">
+          <span>Material Cost:</span>
           <span>£${costs.materialCost.toLocaleString()}</span>
-        </div>
-        
-        <div class="flex justify-between">
-          <span>Complexity Factor:</span>
-          <span>${costs.complexityMultiplier.toFixed(2)}x</span>
         </div>
         
         ${costs.clientRiskCost > 0 ? `
           <div class="flex justify-between">
-            <span>Client-Borne Risk Costs:</span>
+            <span>Potential Risk Costs (if applicable):</span>
             <span>£${costs.clientRiskCost.toLocaleString()}</span>
           </div>
         ` : ''}
