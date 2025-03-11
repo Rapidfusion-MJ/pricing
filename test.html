@@ -1132,6 +1132,15 @@ document.addEventListener('DOMContentLoaded', fixPdfExportButton);
 // Modified version of the generateReport function
 // This focuses only on updating the pricing section to be simpler for clients
 
+// Modified version of the generateReport function
+// This focuses only on updating the pricing section to be simpler for clients
+
+// Modified version of the generateReport function
+// This focuses only on updating the pricing section to be simpler for clients
+
+// Modified version of the generateReport function
+// This focuses only on updating the pricing section to be simpler for clients
+
 function generateReport() {
   const costs = calculateCosts();
   const container = document.getElementById('reportContent');
@@ -1255,20 +1264,20 @@ function generateReport() {
     </div>
   `;
 
-  // MODIFIED SECTION: Simplified Project Pricing for clients
+  // MODIFIED SECTION: Simplified Project Pricing for clients with complexity factor aggregated
   container.innerHTML += `
     <!-- Project Pricing -->
     <div class="mt-8">
       <h2 class="text-xl font-bold border-b border-gray-700 pb-2 text-primary-color">Project Pricing</h2>
       <div class="mt-4 space-y-2">
         <div class="flex justify-between">
-          <span>R&D Cost (${costs.rdDays} days @ £${Math.round(costs.adjustedDayRate).toLocaleString()}/day):</span>
-          <span>£${costs.rdCost.toLocaleString()}</span>
+          <span>R&D Cost (${costs.rdDays} days @ £${Math.round(costs.adjustedDayRate * costs.complexityMultiplier).toLocaleString()}/day):</span>
+          <span>£${Math.round(costs.rdCost * costs.complexityMultiplier).toLocaleString()}</span>
         </div>
         
         <div class="flex justify-between">
           <span>Material Cost:</span>
-          <span>£${costs.materialCost.toLocaleString()}</span>
+          <span>£${Math.round(costs.materialCost * costs.complexityMultiplier).toLocaleString()}</span>
         </div>
         
         ${costs.clientRiskCost > 0 ? `
