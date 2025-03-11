@@ -1170,24 +1170,23 @@ function generateReport() {
       </div>
     </div>
 
-    
-    <!-- Project Narrative -->
+  
     <div class="mt-8">
-      <h3 class="text-lg font-medium mt-4 text-primary-color">Project Scope</h2>
-      <div class="mt-4 space-y-4">
-        <div>
-          ${appData.project.narrative ? `<p>${appData.project.narrative}</p>` : 
-            `<p class="text-dim italic">No detailed narrative provided.</p>`}
-        </div>
-        
-        ${appData.project.printNotes ? `
-          <div>
-            <h3 class="text-lg font-medium mt-4 text-primary-color">Technical Print Notes</h3>
-            <p class="mt-2">${appData.project.printNotes}</p>
-          </div>
-        ` : ''}
+      <h3 class="text-lg font-medium text-primary-color">Project Scope</h2>
+      <div class="mt-4">
+        ${appData.project.narrative ? `<p>${appData.project.narrative}</p>` : 
+          `<p class="text-dim italic">No detailed narrative provided.</p>`}
       </div>
     </div>
+
+    ${appData.project.printNotes ? `
+      <div class="mt-8">
+        <h3 class="text-lg font-medium text-primary-color">Technical Print Notes</h3>
+        <div class="mt-4">
+          <p>${appData.project.printNotes}</p>
+        </div>
+      </div>
+    ` : ''}
   `;
 
   // Add slice visualizations if any (keep existing code)
