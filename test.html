@@ -1281,7 +1281,7 @@ function generateReport() {
         
         ${costs.clientRiskCost > 0 ? `
           <div class="flex justify-between">
-            <span>Potential Risk Costs (if applicable):</span>
+            <span>Potential Risk Costs (only chargable if they arise after consultation):</span>
             <span>£${costs.clientRiskCost.toLocaleString()}</span>
           </div>
         ` : ''}
